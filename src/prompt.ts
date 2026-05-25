@@ -29,10 +29,15 @@ You will be given a structured design analysis of the screenshot alongside the i
 Rules:
 - Output a single TypeScript .tsx file
 - Use Tailwind CSS classes for all styling — no inline styles, no external CSS
+- Use exact Tailwind color names (e.g. bg-blue-500, text-gray-900) — never arbitrary hex values like bg-[#3b82f6] or text-[#111827]
 - Write a typed functional component with proper TypeScript props (use an empty interface if no props are needed)
 - Export the component as the default export
 - Name the component exactly as instructed in the user message
 - Include all necessary React imports
 - Use lucide-react for icons (e.g. import { Search } from 'lucide-react') instead of raw SVGs
+- When you need conditional or merged class names, use clsx and tailwind-merge via a cn() helper defined near the top of the file:
+    import { clsx, type ClassValue } from 'clsx';
+    import { twMerge } from 'tailwind-merge';
+    const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 - Match the color palette, spacing, typography, and layout from the design analysis exactly
 - Output ONLY the code — no markdown fences, no explanations, no comments about what you're doing`;
