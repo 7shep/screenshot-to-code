@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { stripFences, generateComponent, analyzeScreenshot, analyzeInteractions, animateComponent } from "../src/generate.js";
+import { stripFences, generateComponent, analyzeScreenshot, analyzeInteractions, animateComponent, generateComponentMultiFile, deriveHookName, deriveTypesBaseName } from "../src/generate.js";
 
 // ---------------------------------------------------------------------------
 // Mock the Gemini SDK
@@ -268,5 +268,176 @@ describe("animateComponent", () => {
   it("throws when the API returns empty text", async () => {
     mockGenerateContent.mockResolvedValue(mockResponse(""));
     await expect(animateComponent({ code: FAKE_TSX })).rejects.toThrow("no animated component");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deriveHookName
+// ---------------------------------------------------------------------------
+
+describe("deriveHookName", () => {
+  it("prepends 'use' to the component name", () => {
+    expect(deriveHookName("Foo")).toBe("useFoo");
+  });
+
+  it("works for multi-word component names", () => {
+    expect(deriveHookName("MyNavbar")).toBe("useMyNavbar");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deriveTypesBaseName
+// ---------------------------------------------------------------------------
+
+describe("deriveTypesBaseName", () => {
+  it("lowercases the first letter and appends .types", () => {
+    expect(deriveTypesBaseName("Foo")).toBe("foo.types");
+  });
+
+  it("works for multi-word component names", () => {
+    expect(deriveTypesBaseName("MyNavbar")).toBe("myNavbar.types");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateComponentMultiFile
+// ---------------------------------------------------------------------------
+
+const FAKE_TYPES = `export interface FooProps { label: string; }`;
+const FAKE_HOOK = `import { useState } from 'react';\nexport function useFoo() { return { count: 0 }; }`;
+const FAKE_COMPONENT = `import React from 'react';\nexport default function Foo() { return <div>foo</div>; }`;
+
+function makeMultiFileResponse(types = FAKE_TYPES, hook = FAKE_HOOK, component = FAKE_COMPONENT) {
+  return `<types>\n${types}\n</types>\n<hook>\n${hook}\n</hook>\n<component>\n${component}\n</component>`;
+}
+
+describe("generateComponentMultiFile", () => {
+  beforeEach(() => mockGenerateContent.mockResolvedValue(mockResponse(makeMultiFileResponse())));
+
+  it("returns a MultiFileResult with all three parts", async () => {
+    const result = await generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "Foo" });
+    expect(result).not.toBeNull();
+    expect(result!.types).toBe(FAKE_TYPES);
+    expect(result!.hook).toBe(FAKE_HOOK);
+    expect(result!.tsx).toBe(FAKE_COMPONENT);
+  });
+
+  it("returns null when the API returns empty text", async () => {
+    mockGenerateContent.mockResolvedValue(mockResponse(""));
+    const result = await generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "Foo" });
+    expect(result).toBeNull();
+  });
+
+  it("returns null when the <types> tag is missing", async () => {
+    const raw = `<hook>\n${FAKE_HOOK}\n</hook>\n<component>\n${FAKE_COMPONENT}\n</component>`;
+    mockGenerateContent.mockResolvedValue(mockResponse(raw));
+    const result = await generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "Foo" });
+    expect(result).toBeNull();
+  });
+
+  it("returns null when the <hook> tag is missing", async () => {
+    const raw = `<types>\n${FAKE_TYPES}\n</types>\n<component>\n${FAKE_COMPONENT}\n</component>`;
+    mockGenerateContent.mockResolvedValue(mockResponse(raw));
+    const result = await generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "Foo" });
+    expect(result).toBeNull();
+  });
+
+  it("returns null when the <component> tag is missing", async () => {
+    const raw = `<types>\n${FAKE_TYPES}\n</types>\n<hook>\n${FAKE_HOOK}\n</hook>`;
+    mockGenerateContent.mockResolvedValue(mockResponse(raw));
+    const result = await generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "Foo" });
+    expect(result).toBeNull();
+  });
+
+  it("strips code fences from the tsx part", async () => {
+    mockGenerateContent.mockResolvedValue(
+      mockResponse(makeMultiFileResponse(FAKE_TYPES, FAKE_HOOK, "```tsx\n" + FAKE_COMPONENT + "\n```"))
+    );
+    const result = await generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "Foo" });
+    expect(result!.tsx).toBe(FAKE_COMPONENT);
+  });
+
+  it("strips code fences from the hook part", async () => {
+    mockGenerateContent.mockResolvedValue(
+      mockResponse(makeMultiFileResponse(FAKE_TYPES, "```ts\n" + FAKE_HOOK + "\n```", FAKE_COMPONENT))
+    );
+    const result = await generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "Foo" });
+    expect(result!.hook).toBe(FAKE_HOOK);
+  });
+
+  it("strips code fences from the types part", async () => {
+    mockGenerateContent.mockResolvedValue(
+      mockResponse(makeMultiFileResponse("```ts\n" + FAKE_TYPES + "\n```", FAKE_HOOK, FAKE_COMPONENT))
+    );
+    const result = await generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "Foo" });
+    expect(result!.types).toBe(FAKE_TYPES);
+  });
+
+  it("calls generateContent exactly once", async () => {
+    await generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "Foo" });
+    expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+  });
+
+  it("includes the component, hook, and types names in the prompt", async () => {
+    await generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "MyNavbar" });
+    const payload = mockGenerateContent.mock.lastCall?.[0];
+    const parts = payload.contents[0].parts;
+    const promptText = parts.map((p: { text?: string }) => p.text ?? "").join("\n");
+    expect(promptText).toContain("MyNavbar");
+    expect(promptText).toContain("useMyNavbar");
+    expect(promptText).toContain("myNavbar.types");
+  });
+
+  it("includes the design analysis block when provided", async () => {
+    await generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "Foo", analysis: FAKE_ANALYSIS });
+    const payload = mockGenerateContent.mock.lastCall?.[0];
+    const parts = payload.contents[0].parts;
+    const analysisPart = parts.find((p: { text?: string }) => p.text?.includes("Design analysis:"));
+    expect(analysisPart).toBeDefined();
+    expect(analysisPart.text).toContain(FAKE_ANALYSIS);
+  });
+
+  it("omits the design analysis block when not provided", async () => {
+    await generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "Foo" });
+    const payload = mockGenerateContent.mock.lastCall?.[0];
+    const parts = payload.contents[0].parts;
+    const analysisPart = parts.find((p: { text?: string }) => p.text?.includes("Design analysis:"));
+    expect(analysisPart).toBeUndefined();
+  });
+
+  it("includes the interactions block when provided", async () => {
+    await generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "Foo", interactions: FAKE_INTERACTIONS });
+    const payload = mockGenerateContent.mock.lastCall?.[0];
+    const parts = payload.contents[0].parts;
+    const interactionsPart = parts.find((p: { text?: string }) => p.text?.includes("Interaction analysis:"));
+    expect(interactionsPart).toBeDefined();
+  });
+
+  it("includes the existingCode block when provided", async () => {
+    await generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "Foo", existingCode: FAKE_COMPONENT });
+    const payload = mockGenerateContent.mock.lastCall?.[0];
+    const parts = payload.contents[0].parts;
+    const existingPart = parts.find((p: { text?: string }) => p.text?.includes("Existing component"));
+    expect(existingPart).toBeDefined();
+  });
+
+  it("uses MULTI_FILE_REFINE_PROMPT when existingCode is provided", async () => {
+    await generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "Foo", existingCode: FAKE_COMPONENT });
+    const payload = mockGenerateContent.mock.lastCall?.[0];
+    // When refining, the prompt text should reference updating the feature slice
+    const parts = payload.contents[0].parts;
+    const updatePart = parts.find((p: { text?: string }) => p.text?.toLowerCase().includes("update"));
+    expect(updatePart).toBeDefined();
+  });
+
+  it("includes the second image when provided", async () => {
+    const secondImage = { base64: "d29ybGQ=", mediaType: "image/png" as const };
+    await generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "Foo", secondImage });
+    const payload = mockGenerateContent.mock.lastCall?.[0];
+    const parts = payload.contents[0].parts;
+    const secondImagePart = parts.find(
+      (p: { inlineData?: { data: string } }) => p.inlineData?.data === secondImage.base64
+    );
+    expect(secondImagePart).toBeDefined();
   });
 });

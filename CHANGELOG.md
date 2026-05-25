@@ -2,6 +2,39 @@
 
 All notable changes to s2c are documented here.
 
+## [1.1.0] — 2026-05-25
+
+### Multi-file output (`--multi-file`)
+
+Generate a full feature slice instead of a single component file:
+
+```bash
+s2c dashboard.png --multi-file
+# writes Dashboard.tsx + useDashboard.ts + dashboard.types.ts
+```
+
+The AI produces three coordinated files in a single pass:
+
+- **`ComponentName.tsx`** — the React component, importing from the hook and types files
+- **`useComponentName.ts`** — a custom hook encapsulating all state and logic
+- **`componentName.types.ts`** — shared TypeScript interfaces and types
+
+Falls back to single-file mode automatically if the model output cannot be parsed into three parts.
+
+Works with all existing flags: `--refine`, `--animate`, two-states mode, and `--watch`.
+
+### Test coverage
+
+110 tests across the full pipeline. New test suite covers the multi-file feature end-to-end:
+
+- Correct parsing of all three output sections (`<types>`, `<hook>`, `<component>`)
+- Graceful `null` return on missing tags or empty API response (triggers single-file fallback)
+- Code-fence stripping on every generated file (prevents raw markdown leaking into `.ts` files)
+- Prompt construction: analysis, interactions, `existingCode`, second image, component/hook/types names
+- `deriveHookName` and `deriveTypesBaseName` naming helpers
+
+---
+
 ## [1.0.0] — 2026-05-25
 
 ### What you can do now
