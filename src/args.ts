@@ -9,6 +9,7 @@ export interface CliArgs {
   outputPath?: string;
   model: string;
   noOpen: boolean;
+  animate: boolean;
 }
 
 export function die(message: string): never {
@@ -25,12 +26,13 @@ ${chalk.dim("Usage:")}
   s2c --watch <dir> [options]
 
 ${chalk.dim("Options:")}
-  --watch,  -w <dir>     Watch a directory and convert new images automatically
-  --name,   -n <Name>    Override the component name  (default: derived from filename)
-  --output, -o <path>    Override the output file/dir  (default: next to the image)
-  --model,  -m <id>      Override the AI model         (default: ${DEFAULT_MODEL})
+  --watch,   -w <dir>    Watch a directory and convert new images automatically
+  --animate, -a          Add Framer Motion animations (4th AI pass)
+  --name,    -n <Name>   Override the component name  (default: derived from filename)
+  --output,  -o <path>   Override the output file/dir  (default: next to the image)
+  --model,   -m <id>     Override the AI model         (default: ${DEFAULT_MODEL})
   --no-open              Skip opening the file in VS Code
-  --help,   -h           Show this help
+  --help,    -h          Show this help
 
 ${chalk.dim("Supported image formats:")}
   ${SUPPORTED_EXTENSIONS.join(", ")}
@@ -51,12 +53,15 @@ export function parseArgs(argv: string[]): CliArgs | null {
   let outputPath: string | undefined;
   let model = DEFAULT_MODEL;
   let noOpen = false;
+  let animate = false;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
 
     if (arg === "--no-open") {
       noOpen = true;
+    } else if (arg === "--animate" || arg === "-a") {
+      animate = true;
     } else if (arg === "--watch" || arg === "-w") {
       const next = args[i + 1];
       watchDir = (next && !next.startsWith("-")) ? args[++i] : ".";
@@ -77,5 +82,5 @@ export function parseArgs(argv: string[]): CliArgs | null {
   }
 
   if (!imagePath && !watchDir) return null;
-  return { imagePath, watchDir, componentName, outputPath, model, noOpen };
+  return { imagePath, watchDir, componentName, outputPath, model, noOpen, animate };
 }

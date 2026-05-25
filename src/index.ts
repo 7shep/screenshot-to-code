@@ -14,7 +14,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { parseArgs, die, printHelp } from "./args.js";
 import { loadImage, deriveComponentName, SUPPORTED_EXTENSIONS } from "./image.js";
-import { analyzeScreenshot, analyzeInteractions, generateComponent } from "./generate.js";
+import { analyzeScreenshot, analyzeInteractions, generateComponent, animateComponent } from "./generate.js";
 import { writeComponent, openInEditor } from "./output.js";
 import { startWatch } from "./watch.js";
 
@@ -40,7 +40,7 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  const { imagePath, watchDir, componentName: nameOverride, outputPath, model, noOpen } = parsed;
+  const { imagePath, watchDir, componentName: nameOverride, outputPath, model, noOpen, animate } = parsed;
 
   // --- Validate API key ---
   if (!process.env.GEMINI_API_KEY) {
@@ -56,7 +56,7 @@ async function main(): Promise<void> {
   // --- Watch mode ---
   if (watchDir) {
     try {
-      await startWatch({ watchDir, outputPath, model, noOpen });
+      await startWatch({ watchDir, outputPath, model, noOpen, animate });
     } catch (err) {
       die(err instanceof Error ? err.message : String(err));
     }
@@ -130,6 +130,17 @@ async function main(): Promise<void> {
     handleApiError(err);
   }
   spinner.succeed(chalk.dim("component generated"));
+
+  if (animate) {
+    spinner.start(chalk.dim("adding animations..."));
+    try {
+      code = await animateComponent({ code, interactions, model });
+    } catch (err) {
+      spinner.fail(chalk.red("animation pass failed"));
+      handleApiError(err);
+    }
+    spinner.succeed(chalk.dim("animations added"));
+  }
 
   spinner.start(chalk.dim("writing component..."));
   let filePath: string;

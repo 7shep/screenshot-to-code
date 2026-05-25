@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { SupportedMediaType } from "./image.js";
-import { ANALYSIS_PROMPT, INTERACTION_PROMPT, SYSTEM_PROMPT } from "./prompt.js";
+import { ANALYSIS_PROMPT, ANIMATION_PROMPT, INTERACTION_PROMPT, SYSTEM_PROMPT } from "./prompt.js";
 
 export const DEFAULT_MODEL = "gemini-2.5-flash";
 
@@ -99,6 +99,37 @@ export async function generateComponent(
 
   const text = result.response.text();
   if (!text) throw new Error("Gemini API returned no text content");
+  return stripFences(text);
+}
+
+/**
+ * Pass 4 (optional) — layer Framer Motion animations onto a generated component.
+ * Image is not needed; only the code and interaction context are sent.
+ */
+export async function animateComponent(options: {
+  code: string;
+  interactions?: string;
+  model?: string;
+}): Promise<string> {
+  const { code, interactions, model = DEFAULT_MODEL } = options;
+
+  const client = makeClient(model);
+  const result = await client.generateContent({
+    systemInstruction: ANIMATION_PROMPT,
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: `Component code:\n\`\`\`tsx\n${code}\n\`\`\`` },
+          ...(interactions ? [{ text: `Interaction analysis:\n${interactions}` }] : []),
+          { text: "Add Framer Motion animations to this component." },
+        ],
+      },
+    ],
+  });
+
+  const text = result.response.text();
+  if (!text) throw new Error("Gemini returned no animated component");
   return stripFences(text);
 }
 

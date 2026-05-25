@@ -61,6 +61,7 @@ const BASE_OPTIONS = {
   outputPath: "/out",
   model: "gemini-2.5-flash",
   noOpen: true,
+  animate: false,
 };
 
 beforeEach(() => {
@@ -84,6 +85,15 @@ describe("processFile", () => {
   it("calls the API three times (visual analysis + interaction analysis + generation)", async () => {
     await processFile(FAKE_IMAGE_PATH, BASE_OPTIONS);
     expect(mockGenerateContent).toHaveBeenCalledTimes(3);
+  });
+
+  it("calls the API four times when animate is true", async () => {
+    mockGenerateContent.mockResolvedValueOnce({ response: { text: () => FAKE_ANALYSIS } })
+      .mockResolvedValueOnce({ response: { text: () => FAKE_INTERACTIONS } })
+      .mockResolvedValueOnce({ response: { text: () => FAKE_TSX } })
+      .mockResolvedValueOnce({ response: { text: () => `import { motion } from 'framer-motion';\n${FAKE_TSX}` } });
+    await processFile(FAKE_IMAGE_PATH, { ...BASE_OPTIONS, animate: true });
+    expect(mockGenerateContent).toHaveBeenCalledTimes(4);
   });
 
   it("writes the component to disk", async () => {

@@ -41,6 +41,20 @@ Return a JSON object with this shape:
 
 Output ONLY valid JSON — no markdown fences, no explanation.`;
 
+export const ANIMATION_PROMPT = `You are a React animation engineer. You will be given a React TSX component and its interaction analysis. Your job is to enhance it with smooth, production-quality Framer Motion animations.
+
+Rules:
+- Add import { motion, AnimatePresence } from 'framer-motion' at the top
+- Replace animatable HTML elements with their motion equivalents (e.g. motion.div, motion.button, motion.li)
+- Add entrance animations to main content sections — a gentle fade-in combined with a slight upward slide (y: 20 → 0) is a good default
+- Add hover and tap feedback to interactive elements: buttons scale slightly on hover (1.02–1.05), press down on tap (0.97)
+- Use AnimatePresence to animate elements that conditionally render based on state (modals, dropdowns, drawers, toasts, tooltips)
+- Use staggerChildren on list containers so items animate in sequence rather than all at once
+- Use the interaction analysis to identify which elements are interactive and apply the most appropriate transition
+- Keep animations subtle and purposeful — duration 0.2s–0.4s, use ease or easeOut curves, avoid linear
+- Do not animate every element — focus on the entrance of the page, interactive affordances, and conditional content
+- Return the complete updated TSX file only — no explanation, no markdown fences`;
+
 export const SYSTEM_PROMPT = `You are a React component generator. Your job is to convert a UI screenshot into a clean, production-quality React component.
 
 You will be given a structured design analysis and an interaction analysis of the screenshot alongside the image itself. Use all three to produce the most accurate result.

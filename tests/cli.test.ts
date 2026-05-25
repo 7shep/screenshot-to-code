@@ -33,6 +33,7 @@ describe("parseArgs", () => {
       imagePath: "./hero.png",
       model: DEFAULT_MODEL,
       noOpen: false,
+      animate: false,
       componentName: undefined,
       outputPath: undefined,
     });
@@ -103,6 +104,18 @@ describe("parseArgs", () => {
 
   it("returns non-null when only --watch is given (no image path)", () => {
     expect(parseArgs(argv("--watch", "./screenshots"))).not.toBeNull();
+  });
+
+  it("parses --animate", () => {
+    expect(parseArgs(argv("img.png", "--animate"))?.animate).toBe(true);
+  });
+
+  it("parses -a shorthand", () => {
+    expect(parseArgs(argv("img.png", "-a"))?.animate).toBe(true);
+  });
+
+  it("defaults animate to false when flag is absent", () => {
+    expect(parseArgs(argv("img.png"))?.animate).toBe(false);
   });
 
   it("defaults watchDir to '.' when --watch has no argument", () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { stripFences, generateComponent, analyzeScreenshot, analyzeInteractions } from "../src/generate.js";
+import { stripFences, generateComponent, analyzeScreenshot, analyzeInteractions, animateComponent } from "../src/generate.js";
 
 // ---------------------------------------------------------------------------
 // Mock the Gemini SDK
@@ -211,5 +211,62 @@ describe("generateComponent", () => {
     await expect(
       generateComponent({ ...FAKE_IMAGE, componentName: "Foo" })
     ).rejects.toThrow("no text content");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// animateComponent
+// ---------------------------------------------------------------------------
+
+describe("animateComponent", () => {
+  const ANIMATED_TSX = `import { motion } from 'framer-motion';\n${FAKE_TSX}`;
+
+  beforeEach(() => mockGenerateContent.mockResolvedValue(mockResponse(ANIMATED_TSX)));
+
+  it("returns the animated code", async () => {
+    const result = await animateComponent({ code: FAKE_TSX });
+    expect(result).toBe(ANIMATED_TSX);
+  });
+
+  it("calls generateContent exactly once", async () => {
+    await animateComponent({ code: FAKE_TSX });
+    expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+  });
+
+  it("includes the component code in the prompt", async () => {
+    await animateComponent({ code: FAKE_TSX });
+    const payload = mockGenerateContent.mock.lastCall?.[0];
+    const parts = payload.contents[0].parts;
+    const codePart = parts.find((p: { text?: string }) => p.text?.includes("Component code:"));
+    expect(codePart).toBeDefined();
+    expect(codePart.text).toContain(FAKE_TSX);
+  });
+
+  it("includes the interactions when provided", async () => {
+    await animateComponent({ code: FAKE_TSX, interactions: FAKE_INTERACTIONS });
+    const payload = mockGenerateContent.mock.lastCall?.[0];
+    const parts = payload.contents[0].parts;
+    const interactionsPart = parts.find((p: { text?: string }) => p.text?.includes("Interaction analysis:"));
+    expect(interactionsPart).toBeDefined();
+    expect(interactionsPart.text).toContain(FAKE_INTERACTIONS);
+  });
+
+  it("omits the interactions block when not provided", async () => {
+    await animateComponent({ code: FAKE_TSX });
+    const payload = mockGenerateContent.mock.lastCall?.[0];
+    const parts = payload.contents[0].parts;
+    const interactionsPart = parts.find((p: { text?: string }) => p.text?.includes("Interaction analysis:"));
+    expect(interactionsPart).toBeUndefined();
+  });
+
+  it("strips fences from the response", async () => {
+    mockGenerateContent.mockResolvedValue(mockResponse("```tsx\n" + ANIMATED_TSX + "\n```"));
+    const result = await animateComponent({ code: FAKE_TSX });
+    expect(result).toBe(ANIMATED_TSX);
+  });
+
+  it("throws when the API returns empty text", async () => {
+    mockGenerateContent.mockResolvedValue(mockResponse(""));
+    await expect(animateComponent({ code: FAKE_TSX })).rejects.toThrow("no animated component");
   });
 });

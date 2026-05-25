@@ -2,7 +2,7 @@ import { watch, existsSync } from "fs";
 import { resolve, extname } from "path";
 import chalk from "chalk";
 import { SUPPORTED_EXTENSIONS, loadImage, deriveComponentName } from "./image.js";
-import { analyzeScreenshot, analyzeInteractions, generateComponent } from "./generate.js";
+import { analyzeScreenshot, analyzeInteractions, generateComponent, animateComponent } from "./generate.js";
 import { writeComponent, openInEditor } from "./output.js";
 
 export interface WatchOptions {
@@ -10,10 +10,11 @@ export interface WatchOptions {
   outputPath?: string;
   model: string;
   noOpen: boolean;
+  animate: boolean;
 }
 
 export async function processFile(absPath: string, options: WatchOptions): Promise<void> {
-  const { outputPath, model, noOpen } = options;
+  const { outputPath, model, noOpen, animate } = options;
   const componentName = deriveComponentName(absPath);
   const imageDir = process.cwd();
   const label = chalk.cyan(`[${componentName}]`);
@@ -37,7 +38,7 @@ export async function processFile(absPath: string, options: WatchOptions): Promi
   });
 
   console.log(`${label} ${chalk.dim("generating component...")}`);
-  const code = await generateComponent({
+  let code = await generateComponent({
     base64: imageData.base64,
     mediaType: imageData.mediaType,
     componentName,
@@ -45,6 +46,11 @@ export async function processFile(absPath: string, options: WatchOptions): Promi
     analysis,
     interactions,
   });
+
+  if (animate) {
+    console.log(`${label} ${chalk.dim("adding animations...")}`);
+    code = await animateComponent({ code, interactions, model });
+  }
 
   const filePath = writeComponent({ code, imageDir, componentName, outputOverride: outputPath });
   console.log(`${label} ${chalk.green("✓")} wrote ${chalk.bold(filePath)}`);
