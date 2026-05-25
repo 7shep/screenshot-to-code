@@ -1,6 +1,6 @@
 {
   "name": "screenshot-to-code",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "CLI that converts UI screenshots into React TSX components using Gemini",
   "type": "module",
   "bin": {
