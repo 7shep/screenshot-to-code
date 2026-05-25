@@ -16,6 +16,7 @@ import { parseArgs, die, printHelp } from "./args.js";
 import { loadImage, deriveComponentName, SUPPORTED_EXTENSIONS } from "./image.js";
 import { analyzeScreenshot, generateComponent } from "./generate.js";
 import { writeComponent, openInEditor } from "./output.js";
+import { startWatch } from "./watch.js";
 
 function handleApiError(err: unknown): never {
   if (err instanceof Error) {
@@ -39,18 +40,7 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  const { imagePath, componentName: nameOverride, outputPath, model, noOpen } = parsed;
-
-  // --- Validate image path ---
-  const absoluteImagePath = resolve(imagePath);
-  if (!existsSync(absoluteImagePath)) {
-    die(`File not found: ${imagePath}`);
-  }
-
-  const ext = extname(absoluteImagePath).toLowerCase();
-  if (!SUPPORTED_EXTENSIONS.includes(ext)) {
-    die(`Unsupported file type "${ext}". Supported: ${SUPPORTED_EXTENSIONS.join(", ")}`);
-  }
+  const { imagePath, watchDir, componentName: nameOverride, outputPath, model, noOpen } = parsed;
 
   // --- Validate API key ---
   if (!process.env.GEMINI_API_KEY) {
@@ -61,6 +51,27 @@ async function main(): Promise<void> {
         "    Get a key at: https://aistudio.google.com/apikey"
       )
     );
+  }
+
+  // --- Watch mode ---
+  if (watchDir) {
+    try {
+      await startWatch({ watchDir, outputPath, model, noOpen });
+    } catch (err) {
+      die(err instanceof Error ? err.message : String(err));
+    }
+    return;
+  }
+
+  // --- Validate image path ---
+  const absoluteImagePath = resolve(imagePath);
+  if (!existsSync(absoluteImagePath)) {
+    die(`File not found: ${imagePath}`);
+  }
+
+  const ext = extname(absoluteImagePath).toLowerCase();
+  if (!SUPPORTED_EXTENSIONS.includes(ext)) {
+    die(`Unsupported file type "${ext}". Supported: ${SUPPORTED_EXTENSIONS.join(", ")}`);
   }
 
   const componentName = nameOverride ?? deriveComponentName(absoluteImagePath);

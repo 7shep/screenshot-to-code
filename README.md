@@ -6,6 +6,7 @@ A CLI tool that turns a UI screenshot into a clean React TypeScript component us
 ❯ s2c ./screenshots/navbar.png
 
   ✓ image loaded
+  ✓ screenshot analysed
   ✓ component generated
   ✓ wrote /screenshots/Navbar.tsx
   ✓ opened in VS Code
@@ -14,7 +15,7 @@ A CLI tool that turns a UI screenshot into a clean React TypeScript component us
 ## Requirements
 
 - Node.js ≥ 18
-- An API key for your chosen model provider (see [Models](#models))
+- A Gemini API key (see [API Key](#api-key))
 
 ## Install
 
@@ -47,16 +48,23 @@ The tool picks this up automatically. You can also export it in your shell inste
 export GEMINI_API_KEY=AIza...
 ```
 
+Get a key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+
 ## Usage
 
 ```bash
+# Convert a single screenshot
 s2c <image> [options]
+
+# Watch a directory for new screenshots
+s2c --watch <dir> [options]
 ```
 
 ### Options
 
 | Flag | Short | Description | Default |
 |---|---|---|---|
+| `--watch <dir>` | `-w` | Watch a directory and convert new images automatically | — |
 | `--name <Name>` | `-n` | Override the component name | Derived from filename |
 | `--output <path>` | `-o` | Output file or directory | Next to the image |
 | `--model <id>` | `-m` | Use a different AI model | `gemini-2.5-flash` |
@@ -66,26 +74,6 @@ s2c <image> [options]
 ### Supported image formats
 
 `.png`, `.jpg`, `.jpeg`, `.webp`
-
-## Models
-
-The default model is `gemini-2.5-flash`. You can swap to any model that supports vision using `--model`.
-
-### Google Gemini
-
-Get a key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) and set `GEMINI_API_KEY`.
-
-| Model | Notes |
-|---|---|
-| `gemini-2.5-flash` | Default. Fast and capable. |
-| `gemini-2.5-pro` | Slower, higher quality. |
-| `gemini-2.0-flash` | Previous generation flash. |
-
-### Anthropic Claude
-
-Get a key at [console.anthropic.com](https://console.anthropic.com/settings/api-keys) and set `ANTHROPIC_API_KEY` in your `.env`.
-
-> **Note:** Using Claude requires changing the client in `src/generate.ts` back to `@anthropic-ai/sdk`. The `--model` flag passes the model ID straight through to whichever client is compiled in.
 
 ## Examples
 
@@ -106,9 +94,46 @@ s2c button.png --no-open
 s2c button.png --output ./src/components/Button.tsx
 ```
 
+## Watch Mode
+
+Watch mode monitors a directory and automatically converts any new image dropped into it.
+
+```bash
+s2c --watch ./screenshots --output ./src/components
+```
+
+```
+◉ watching /screenshots
+  → output: /src/components
+  Press Ctrl+C to stop
+
+[Navbar] reading image...
+[Navbar] analysing screenshot (gemini-2.5-flash)...
+[Navbar] generating component...
+[Navbar] ✓ wrote /src/components/Navbar.tsx
+
+[HeroBanner] reading image...
+...
+```
+
+Each new image gets its own component name derived from the filename. Multiple images can land in the folder at the same time — each is processed independently. Press `Ctrl+C` to stop.
+
+`--output` is optional; without it, each component is written next to its source image.
+
+## Models
+
+The default model is `gemini-2.5-flash`. Swap to any vision-capable model with `--model`.
+
+| Model | Notes |
+|---|---|
+| `gemini-2.5-flash` | Default. Fast and capable. |
+| `gemini-2.5-pro` | Slower, higher quality. |
+| `gemini-2.0-flash` | Previous generation flash. |
+
 ## Development
 
 ```bash
-npm run dev    # watch mode — recompiles on save
-npm run build  # one-shot build
+npm run dev      # watch mode — recompiles on save
+npm run build    # one-shot build
+npm test         # run tests
 ```

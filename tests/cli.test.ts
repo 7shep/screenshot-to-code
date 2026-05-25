@@ -87,6 +87,24 @@ describe("parseArgs", () => {
     });
   });
 
+  it("parses --watch", () => {
+    const result = parseArgs(argv("--watch", "./screenshots"));
+    expect(result).toMatchObject({ watchDir: "./screenshots", imagePath: "" });
+  });
+
+  it("parses -w shorthand", () => {
+    expect(parseArgs(argv("-w", "./shots"))?.watchDir).toBe("./shots");
+  });
+
+  it("parses --watch with --output", () => {
+    const result = parseArgs(argv("--watch", "./screenshots", "--output", "./src"));
+    expect(result).toMatchObject({ watchDir: "./screenshots", outputPath: "./src" });
+  });
+
+  it("returns non-null when only --watch is given (no image path)", () => {
+    expect(parseArgs(argv("--watch", "./screenshots"))).not.toBeNull();
+  });
+
   it("calls process.exit on an unknown flag", () => {
     expect(() => parseArgs(argv("img.png", "--unknown"))).toThrow("process.exit called");
     expect(exitSpy).toHaveBeenCalledWith(1);
