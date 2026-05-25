@@ -21,6 +21,26 @@ A CLI tool that turns a UI screenshot into a clean, interactive React TypeScript
   ✓ animations added
   ✓ wrote Navbar.tsx
   ✓ opened in VS Code
+
+❯ s2c new-navbar.png --refine src/components/Navbar.tsx
+
+  ✓ image loaded
+  ✓ existing component loaded
+  ✓ screenshot analysed
+  ✓ interactions analysed
+  ✓ component refined
+  ✓ wrote src/components/Navbar.tsx
+  ✓ opened in VS Code
+
+❯ s2c closed.png open.png
+
+  ✓ images loaded (2)
+  ✓ screenshot analysed
+  ✓ state transition analysed
+  ✓ interactions analysed
+  ✓ component generated
+  ✓ wrote Closed.tsx
+  ✓ opened in VS Code
 ```
 
 ## Requirements
@@ -67,6 +87,12 @@ Get a key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
 # Convert a single screenshot
 s2c <image> [options]
 
+# Two-states mode — generate one component with toggle logic
+s2c <image1> <image2> [options]
+
+# Refinement mode — update an existing component to match a new screenshot
+s2c <image> --refine <Component.tsx> [options]
+
 # Watch a directory for new screenshots
 s2c --watch <dir> [options]
 ```
@@ -77,6 +103,8 @@ s2c --watch <dir> [options]
 |---|---|---|---|
 | `--watch <dir>` | `-w` | Watch a directory and convert new images automatically | — |
 | `--animate` | `-a` | Add Framer Motion animations (4th AI pass) | — |
+| `--style <preset>` | `-s` | Styling approach: `tailwind`, `css-modules`, `styled-components` | `tailwind` |
+| `--refine <file>` | `-r` | Update an existing component to match the new screenshot (sends file contents to Gemini API) | — |
 | `--name <Name>` | `-n` | Override the component name | Derived from filename |
 | `--output <path>` | `-o` | Output file or directory | Current directory |
 | `--model <id>` | `-m` | Use a different AI model | `gemini-2.5-flash` |
@@ -108,8 +136,23 @@ s2c button.png --output ./src/components/Button.tsx
 # Add Framer Motion animations
 s2c navbar.png --animate
 
-# Full pipeline — custom name, output dir, animations
-s2c hero.png --name HeroSection --output ./src/components --animate
+# Use CSS Modules instead of Tailwind (writes Navbar.tsx + Navbar.module.css)
+s2c navbar.png --style css-modules
+
+# Use styled-components
+s2c navbar.png --style styled-components
+
+# Full pipeline — custom name, output dir, CSS modules
+s2c hero.png --name HeroSection --output ./src/components --style css-modules
+
+# Refinement — update an existing component to match a new screenshot
+s2c new-navbar.png --refine src/components/Navbar.tsx
+
+# Two-states — generate one component with toggle logic from two states
+s2c modal-closed.png modal-open.png
+
+# Combine: refine + animate
+s2c new-design.png --refine src/components/Hero.tsx --animate
 ```
 
 ## Watch Mode
@@ -149,7 +192,21 @@ s2c runs up to four AI passes on every screenshot before writing a single line o
 3. **Component generation** — the model receives the image alongside both analyses and generates a fully typed `.tsx` file with real `useState` hooks and handlers wired up, Tailwind classes, and `lucide-react` icons.
 4. **Animation pass** *(optional, `--animate`)* — takes the generated component and layers in Framer Motion: entrance animations, hover and tap feedback on interactive elements, `AnimatePresence` for conditionally rendered content, and staggered list animations. Uses the interaction analysis to target the right elements.
 
+**Refinement mode** (`--refine`) adds a "load existing component" step before the pipeline and swaps the generation prompt for an update prompt — the model preserves structure, state, and handlers, only changing what the new screenshot requires. Overwrites the target file by default.
+
+**Two-states mode** (two positional images) inserts a dedicated state-transition pass between visual and interaction analysis. The model identifies what user action triggers the transition, what elements appear/disappear, and what React state variables are needed — then generates one component with the toggle already wired up.
+
 This pipeline is what separates s2c from pasting a screenshot into a chat window — you get a component that actually works and moves, not just one that looks right.
+
+## Style Presets
+
+Control the styling approach with `--style`:
+
+| Preset | Output | Notes |
+|---|---|---|
+| `tailwind` | Single `.tsx` | Default. Tailwind CSS classes, `cn()` helper, `lucide-react` icons. |
+| `css-modules` | `.tsx` + `.module.css` | Companion CSS file written alongside the component. |
+| `styled-components` | Single `.tsx` | Requires `styled-components` installed in your project (`npm i styled-components`). |
 
 ## Models
 

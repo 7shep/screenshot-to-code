@@ -1,10 +1,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { SupportedMediaType } from "./image.js";
-import { ANALYSIS_PROMPT, ANIMATION_PROMPT, INTERACTION_PROMPT, SYSTEM_PROMPT } from "./prompt.js";
+import { ANALYSIS_PROMPT, ANIMATION_PROMPT, INTERACTION_PROMPT, STATE_TRANSITION_PROMPT, getGenerationPrompt } from "./prompt.js";
 
 export const DEFAULT_MODEL = "gemini-2.5-flash";
 
-interface ImagePayload {
+export interface ImagePayload {
   base64: string;
   mediaType: SupportedMediaType;
 }
@@ -14,6 +14,15 @@ export interface GenerateOptions extends ImagePayload {
   model?: string;
   analysis?: string;
   interactions?: string;
+  style?: string;
+  existingCode?: string;
+  secondImage?: ImagePayload;
+  stateTransition?: string;
+}
+
+export interface GenerateResult {
+  code: string;
+  css?: string;
 }
 
 function makeClient(model: string) {
@@ -76,30 +85,80 @@ export async function analyzeInteractions(
 }
 
 /**
+ * Pass 1.5 (two-states mode) — identify the state transition between two screenshots.
+ */
+export async function analyzeStateTransition(options: {
+  image1: ImagePayload;
+  image2: ImagePayload;
+  model?: string;
+}): Promise<string> {
+  const { image1, image2, model = DEFAULT_MODEL } = options;
+
+  const client = makeClient(model);
+  const result = await client.generateContent({
+    systemInstruction: STATE_TRANSITION_PROMPT,
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { inlineData: { data: image1.base64, mimeType: image1.mediaType } },
+          { inlineData: { data: image2.base64, mimeType: image2.mediaType } },
+          { text: "The first image is the initial state (before). The second image is the changed state (after). Identify the transition between them." },
+        ],
+      },
+    ],
+  });
+
+  const text = result.response.text();
+  if (!text) throw new Error("Gemini returned no state transition analysis");
+  return stripFences(text);
+}
+
+/**
  * Pass 3 — generate the TSX component using the visual and interaction analyses.
+ * Returns { code, css } where css is only present for the css-modules style preset.
  */
 export async function generateComponent(
   options: GenerateOptions
-): Promise<string> {
-  const { base64, mediaType, componentName, model = DEFAULT_MODEL, analysis, interactions } = options;
+): Promise<GenerateResult> {
+  const {
+    base64, mediaType, componentName, model = DEFAULT_MODEL,
+    analysis, interactions, style = "tailwind",
+    existingCode, secondImage, stateTransition,
+  } = options;
 
   const client = makeClient(model);
 
   const userParts = [
     { inlineData: { data: base64, mimeType: mediaType } },
+    ...(secondImage ? [{ inlineData: { data: secondImage.base64, mimeType: secondImage.mediaType } }] : []),
     ...(analysis ? [{ text: `Design analysis:\n${analysis}` }] : []),
+    ...(stateTransition ? [{ text: `State transition analysis:\n${stateTransition}` }] : []),
     ...(interactions ? [{ text: `Interaction analysis:\n${interactions}` }] : []),
-    { text: `Generate a React component named "${componentName}" that reproduces this UI screenshot.` },
+    ...(existingCode ? [{ text: `Existing component to update:\n\`\`\`tsx\n${existingCode}\n\`\`\`` }] : []),
+    {
+      text: existingCode
+        ? `Update the existing React component named "${componentName}" to match the new screenshot.`
+        : secondImage
+          ? `Generate a single React component named "${componentName}" that implements both UI states shown in the two screenshots, with toggle logic to switch between them.`
+          : `Generate a React component named "${componentName}" that reproduces this UI screenshot.`,
+    },
   ];
 
   const result = await client.generateContent({
-    systemInstruction: SYSTEM_PROMPT,
+    systemInstruction: getGenerationPrompt(!!existingCode, style),
     contents: [{ role: "user", parts: userParts }],
   });
 
   const text = result.response.text();
   if (!text) throw new Error("Gemini API returned no text content");
-  return stripFences(text);
+
+  if (style === "css-modules") {
+    const [tsxPart, cssPart] = text.split("===CSS===");
+    return { code: stripFences(tsxPart ?? ""), css: stripFences(cssPart ?? "") };
+  }
+
+  return { code: stripFences(text) };
 }
 
 /**

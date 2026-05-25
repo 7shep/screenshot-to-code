@@ -150,7 +150,7 @@ describe("generateComponent", () => {
 
   it("returns the generated TSX code", async () => {
     const result = await generateComponent({ ...FAKE_IMAGE, componentName: "Foo" });
-    expect(result).toBe(FAKE_TSX);
+    expect(result.code).toBe(FAKE_TSX);
   });
 
   it("calls generateContent exactly once", async () => {
@@ -203,7 +203,7 @@ describe("generateComponent", () => {
   it("strips fences from the generated code", async () => {
     mockGenerateContent.mockResolvedValue(mockResponse("```tsx\n" + FAKE_TSX + "\n```"));
     const result = await generateComponent({ ...FAKE_IMAGE, componentName: "Foo" });
-    expect(result).toBe(FAKE_TSX);
+    expect(result.code).toBe(FAKE_TSX);
   });
 
   it("throws when the API returns empty text", async () => {

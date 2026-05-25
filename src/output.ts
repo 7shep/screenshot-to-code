@@ -1,4 +1,4 @@
-import { writeFileSync } from "fs";
+import { writeFileSync, mkdirSync } from "fs";
 import { join, dirname, resolve } from "path";
 import { exec } from "child_process";
 
@@ -7,30 +7,48 @@ export interface WriteOptions {
   imageDir: string;
   componentName: string;
   outputOverride?: string;
+  css?: string;
+}
+
+export interface WriteResult {
+  tsx: string;
+  css?: string;
 }
 
 /**
- * Write the generated component code to disk.
- * Returns the absolute path of the written file.
+ * Write the generated component to disk.
+ * When css is provided, also writes ComponentName.module.css alongside the TSX.
+ * Returns the paths of written files.
  */
-export function writeComponent(options: WriteOptions): string {
-  const { code, imageDir, componentName, outputOverride } = options;
+export function writeComponent(options: WriteOptions): WriteResult {
+  const { code, imageDir, componentName, outputOverride, css } = options;
 
-  let targetPath: string;
+  let targetDir: string;
+  let tsxPath: string;
 
   if (outputOverride) {
-    // If the override looks like a directory (no .tsx/.ts/.jsx/.js extension), append the filename
     if (!/\.(tsx?|jsx?)$/i.test(outputOverride)) {
-      targetPath = resolve(join(outputOverride, `${componentName}.tsx`));
+      targetDir = resolve(outputOverride);
+      tsxPath = join(targetDir, `${componentName}.tsx`);
     } else {
-      targetPath = resolve(outputOverride);
+      tsxPath = resolve(outputOverride);
+      targetDir = dirname(tsxPath);
     }
   } else {
-    targetPath = resolve(join(imageDir, `${componentName}.tsx`));
+    targetDir = resolve(imageDir);
+    tsxPath = join(targetDir, `${componentName}.tsx`);
   }
 
-  writeFileSync(targetPath, code, "utf-8");
-  return targetPath;
+  mkdirSync(targetDir, { recursive: true });
+  writeFileSync(tsxPath, code, "utf-8");
+
+  if (css) {
+    const cssPath = join(targetDir, `${componentName}.module.css`);
+    writeFileSync(cssPath, css, "utf-8");
+    return { tsx: tsxPath, css: cssPath };
+  }
+
+  return { tsx: tsxPath };
 }
 
 /**

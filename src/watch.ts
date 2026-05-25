@@ -4,6 +4,7 @@ import chalk from "chalk";
 import { SUPPORTED_EXTENSIONS, loadImage, deriveComponentName } from "./image.js";
 import { analyzeScreenshot, analyzeInteractions, generateComponent, animateComponent } from "./generate.js";
 import { writeComponent, openInEditor } from "./output.js";
+import type { StylePreset } from "./args.js";
 
 export interface WatchOptions {
   watchDir: string;
@@ -11,10 +12,11 @@ export interface WatchOptions {
   model: string;
   noOpen: boolean;
   animate: boolean;
+  style: StylePreset;
 }
 
 export async function processFile(absPath: string, options: WatchOptions): Promise<void> {
-  const { outputPath, model, noOpen, animate } = options;
+  const { outputPath, model, noOpen, animate, style } = options;
   const componentName = deriveComponentName(absPath);
   const imageDir = process.cwd();
   const label = chalk.cyan(`[${componentName}]`);
@@ -38,25 +40,27 @@ export async function processFile(absPath: string, options: WatchOptions): Promi
   });
 
   console.log(`${label} ${chalk.dim("generating component...")}`);
-  let code = await generateComponent({
+  let generated = await generateComponent({
     base64: imageData.base64,
     mediaType: imageData.mediaType,
     componentName,
     model,
     analysis,
     interactions,
+    style,
   });
 
   if (animate) {
     console.log(`${label} ${chalk.dim("adding animations...")}`);
-    code = await animateComponent({ code, interactions, model });
+    generated.code = await animateComponent({ code: generated.code, interactions, model });
   }
 
-  const filePath = writeComponent({ code, imageDir, componentName, outputOverride: outputPath });
-  console.log(`${label} ${chalk.green("✓")} wrote ${chalk.bold(filePath)}`);
+  const written = writeComponent({ code: generated.code, css: generated.css, imageDir, componentName, outputOverride: outputPath });
+  console.log(`${label} ${chalk.green("✓")} wrote ${chalk.bold(written.tsx)}`);
+  if (written.css) console.log(`${label} ${chalk.green("✓")} wrote ${chalk.bold(written.css)}`);
 
   if (!noOpen) {
-    openInEditor(filePath);
+    openInEditor(written.tsx);
     console.log(`${label} ${chalk.green("✓")} opened in VS Code`);
   }
 }

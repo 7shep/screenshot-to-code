@@ -27,7 +27,7 @@ vi.mock("../src/image.js", async (importOriginal) => {
 });
 
 vi.mock("../src/output.js", () => ({
-  writeComponent: vi.fn(() => "/out/Navbar.tsx"),
+  writeComponent: vi.fn(() => ({ tsx: "/out/Navbar.tsx" })),
   openInEditor: vi.fn(),
 }));
 

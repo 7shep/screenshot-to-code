@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { config as loadEnv } from "dotenv";
 import { fileURLToPath } from "url";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { dirname, join, resolve, extname } from "path";
 
 // Load .env from cwd (project-local / global install usage), then fall back
@@ -14,7 +14,8 @@ import chalk from "chalk";
 import ora from "ora";
 import { parseArgs, die, printHelp } from "./args.js";
 import { loadImage, deriveComponentName, SUPPORTED_EXTENSIONS } from "./image.js";
-import { analyzeScreenshot, analyzeInteractions, generateComponent, animateComponent } from "./generate.js";
+import { analyzeScreenshot, analyzeInteractions, analyzeStateTransition, generateComponent, animateComponent } from "./generate.js";
+import type { ImagePayload } from "./generate.js";
 import { writeComponent, openInEditor } from "./output.js";
 import { startWatch } from "./watch.js";
 
@@ -40,7 +41,7 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  const { imagePath, watchDir, componentName: nameOverride, outputPath, model, noOpen, animate } = parsed;
+  const { imagePath, secondImagePath, watchDir, componentName: nameOverride, outputPath, model, noOpen, animate, style, refinePath } = parsed;
 
   // --- Validate API key ---
   if (!process.env.GEMINI_API_KEY) {
@@ -56,7 +57,7 @@ async function main(): Promise<void> {
   // --- Watch mode ---
   if (watchDir) {
     try {
-      await startWatch({ watchDir, outputPath, model, noOpen, animate });
+      await startWatch({ watchDir, outputPath, model, noOpen, animate, style });
     } catch (err) {
       die(err instanceof Error ? err.message : String(err));
     }
@@ -79,15 +80,51 @@ async function main(): Promise<void> {
 
   const spinner = ora({ color: "cyan" });
 
+  // --- Load primary image ---
   spinner.start(chalk.dim("reading image..."));
-  let imageData;
+  let imageData: ImagePayload;
   try {
     imageData = loadImage(absoluteImagePath);
   } catch (err) {
     spinner.fail(chalk.red("failed to read image"));
     die(err instanceof Error ? err.message : String(err));
   }
-  spinner.succeed(chalk.dim("image loaded"));
+
+  // --- Load second image (two-states mode) ---
+  let secondImageData: ImagePayload | undefined;
+  if (secondImagePath) {
+    const absSecond = resolve(secondImagePath);
+    if (!existsSync(absSecond)) die(`File not found: ${secondImagePath}`);
+    try {
+      secondImageData = loadImage(absSecond);
+    } catch (err) {
+      spinner.fail(chalk.red("failed to read second image"));
+      die(err instanceof Error ? err.message : String(err));
+    }
+    spinner.succeed(chalk.dim("images loaded (2)"));
+  } else {
+    spinner.succeed(chalk.dim("image loaded"));
+  }
+
+  // --- Validate --refine + --style compatibility ---
+  if (refinePath && style !== "tailwind") {
+    die(`--refine only supports Tailwind styling. Remove --style ${style} or omit --refine.`);
+  }
+
+  // --- Load existing component (refinement mode) ---
+  let existingCode: string | undefined;
+  if (refinePath) {
+    const absRefine = resolve(refinePath);
+    if (!existsSync(absRefine)) die(`Refine target not found: ${refinePath}`);
+    spinner.start(chalk.dim("loading existing component..."));
+    try {
+      existingCode = readFileSync(absRefine, "utf-8");
+    } catch (err) {
+      spinner.fail(chalk.red("failed to read existing component"));
+      die(`Could not read ${refinePath}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    spinner.succeed(chalk.dim("existing component loaded"));
+  }
 
   spinner.start(chalk.dim(`analysing screenshot (${model})...`));
   let analysis: string;
@@ -98,6 +135,19 @@ async function main(): Promise<void> {
     handleApiError(err);
   }
   spinner.succeed(chalk.dim("screenshot analysed"));
+
+  // --- State transition analysis (two-states mode) ---
+  let stateTransition: string | undefined;
+  if (secondImageData) {
+    spinner.start(chalk.dim("analysing state transition..."));
+    try {
+      stateTransition = await analyzeStateTransition({ image1: imageData, image2: secondImageData, model });
+    } catch (err) {
+      spinner.fail(chalk.red("state transition analysis failed"));
+      handleApiError(err);
+    }
+    spinner.succeed(chalk.dim("state transition analysed"));
+  }
 
   spinner.start(chalk.dim("analysing interactions..."));
   let interactions: string;
@@ -114,27 +164,32 @@ async function main(): Promise<void> {
   }
   spinner.succeed(chalk.dim("interactions analysed"));
 
-  spinner.start(chalk.dim("generating component..."));
-  let code: string;
+  const generationLabel = existingCode ? "refining component..." : "generating component...";
+  spinner.start(chalk.dim(generationLabel));
+  let generated: { code: string; css?: string };
   try {
-    code = await generateComponent({
+    generated = await generateComponent({
       base64: imageData.base64,
       mediaType: imageData.mediaType,
       componentName,
       model,
       analysis,
       interactions,
+      style,
+      existingCode,
+      secondImage: secondImageData,
+      stateTransition,
     });
   } catch (err) {
     spinner.fail(chalk.red("generation failed"));
     handleApiError(err);
   }
-  spinner.succeed(chalk.dim("component generated"));
+  spinner.succeed(chalk.dim(existingCode ? "component refined" : "component generated"));
 
   if (animate) {
     spinner.start(chalk.dim("adding animations..."));
     try {
-      code = await animateComponent({ code, interactions, model });
+      generated.code = await animateComponent({ code: generated.code, interactions, model });
     } catch (err) {
       spinner.fail(chalk.red("animation pass failed"));
       handleApiError(err);
@@ -143,22 +198,24 @@ async function main(): Promise<void> {
   }
 
   spinner.start(chalk.dim("writing component..."));
-  let filePath: string;
+  let written: { tsx: string; css?: string };
   try {
-    filePath = writeComponent({
-      code,
+    written = writeComponent({
+      code: generated.code,
+      css: generated.css,
       imageDir,
       componentName,
-      outputOverride: outputPath,
+      outputOverride: outputPath ?? (refinePath ? resolve(refinePath) : undefined),
     });
   } catch (err) {
     spinner.fail(chalk.red("failed to write file"));
     die(err instanceof Error ? err.message : String(err));
   }
-  spinner.succeed(`${chalk.green("✓")} wrote ${chalk.bold(filePath)}`);
+  spinner.succeed(`${chalk.green("✓")} wrote ${chalk.bold(written.tsx)}`);
+  if (written.css) console.log(`  ${chalk.green("✓")} wrote ${chalk.bold(written.css)}`);
 
   if (!noOpen) {
-    openInEditor(filePath);
+    openInEditor(written.tsx);
     console.log(`  ${chalk.green("✓")} opened in VS Code`);
   }
 }
