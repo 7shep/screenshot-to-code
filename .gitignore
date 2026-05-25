@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+*.env
+
+*plan.md
+.claude/
+test/
