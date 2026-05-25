@@ -8,8 +8,10 @@ A CLI tool that turns a UI screenshot into a clean, interactive React TypeScript
   ✓ image loaded
   ✓ screenshot analysed
   ✓ interactions analysed
-  ✓ component generated
+  ✓ component generated (3 files)
   ✓ wrote Navbar.tsx
+  ✓ wrote useNavbar.ts
+  ✓ wrote navbar.types.ts
   ✓ opened in VS Code
 
 ❯ s2c ./screenshots/navbar.png --animate
@@ -17,8 +19,19 @@ A CLI tool that turns a UI screenshot into a clean, interactive React TypeScript
   ✓ image loaded
   ✓ screenshot analysed
   ✓ interactions analysed
-  ✓ component generated
+  ✓ component generated (3 files)
   ✓ animations added
+  ✓ wrote Navbar.tsx
+  ✓ wrote useNavbar.ts
+  ✓ wrote navbar.types.ts
+  ✓ opened in VS Code
+
+❯ s2c ./screenshots/navbar.png --single
+
+  ✓ image loaded
+  ✓ screenshot analysed
+  ✓ interactions analysed
+  ✓ component generated
   ✓ wrote Navbar.tsx
   ✓ opened in VS Code
 
@@ -38,8 +51,10 @@ A CLI tool that turns a UI screenshot into a clean, interactive React TypeScript
   ✓ screenshot analysed
   ✓ state transition analysed
   ✓ interactions analysed
-  ✓ component generated
+  ✓ component generated (3 files)
   ✓ wrote Closed.tsx
+  ✓ wrote useClosed.ts
+  ✓ wrote closed.types.ts
   ✓ opened in VS Code
 ```
 

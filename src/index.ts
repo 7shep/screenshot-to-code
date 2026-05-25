@@ -14,7 +14,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { parseArgs, die, printHelp } from "./args.js";
 import { loadImage, deriveComponentName, SUPPORTED_EXTENSIONS } from "./image.js";
-import { analyzeScreenshot, analyzeInteractions, analyzeStateTransition, generateComponent, animateComponent } from "./generate.js";
+import { analyzeScreenshot, analyzeInteractions, analyzeStateTransition, generateComponent, generateComponentMultiFile, animateComponent } from "./generate.js";
 import type { ImagePayload } from "./generate.js";
 import { writeComponent, openInEditor } from "./output.js";
 import { startWatch } from "./watch.js";
@@ -41,7 +41,7 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  const { imagePath, secondImagePath, watchDir, componentName: nameOverride, outputPath, model, noOpen, animate, style, refinePath } = parsed;
+  const { imagePath, secondImagePath, watchDir, componentName: nameOverride, outputPath, model, noOpen, animate, style, refinePath, singleFile } = parsed;
 
   // --- Validate API key ---
   if (!process.env.GEMINI_API_KEY) {
@@ -57,7 +57,7 @@ async function main(): Promise<void> {
   // --- Watch mode ---
   if (watchDir) {
     try {
-      await startWatch({ watchDir, outputPath, model, noOpen, animate, style });
+      await startWatch({ watchDir, outputPath, model, noOpen, animate, style, singleFile });
     } catch (err) {
       die(err instanceof Error ? err.message : String(err));
     }
@@ -166,6 +166,74 @@ async function main(): Promise<void> {
 
   const generationLabel = existingCode ? "refining component..." : "generating component...";
   spinner.start(chalk.dim(generationLabel));
+
+  let written: { tsx: string; css?: string; hook?: string; types?: string };
+
+  if (!singleFile) {
+    // Multi-file mode: single Gemini pass → types + hook + component
+    let multiResult: Awaited<ReturnType<typeof generateComponentMultiFile>>;
+    try {
+      multiResult = await generateComponentMultiFile({
+        base64: imageData.base64,
+        mediaType: imageData.mediaType,
+        componentName,
+        model,
+        analysis,
+        interactions,
+        existingCode,
+        secondImage: secondImageData,
+        stateTransition,
+      });
+    } catch (err) {
+      spinner.fail(chalk.red("generation failed"));
+      handleApiError(err);
+    }
+
+    if (!multiResult) {
+      // Parse failed — fall back to single-file mode with a warning
+      spinner.warn(chalk.yellow("multi-file parse failed, falling back to single-file"));
+      multiResult = null;
+    }
+
+    if (multiResult) {
+      if (animate) {
+        spinner.text = chalk.dim("adding animations...");
+        try {
+          multiResult.tsx = await animateComponent({ code: multiResult.tsx, interactions, model });
+        } catch (err) {
+          spinner.fail(chalk.red("animation pass failed"));
+          handleApiError(err);
+        }
+      }
+      spinner.succeed(chalk.dim(existingCode ? "component refined (3 files)" : "component generated (3 files)"));
+      spinner.start(chalk.dim("writing files..."));
+      try {
+        written = writeComponent({
+          code: multiResult.tsx,
+          hook: multiResult.hook,
+          types: multiResult.types,
+          imageDir,
+          componentName,
+          outputOverride: outputPath,
+        });
+      } catch (err) {
+        spinner.fail(chalk.red("failed to write files"));
+        die(err instanceof Error ? err.message : String(err));
+      }
+      spinner.stop();
+      console.log(`  ${chalk.green("✓")} wrote ${chalk.bold(written.tsx)}`);
+      if (written.hook) console.log(`  ${chalk.green("✓")} wrote ${chalk.bold(written.hook)}`);
+      if (written.types) console.log(`  ${chalk.green("✓")} wrote ${chalk.bold(written.types)}`);
+      if (!noOpen) {
+        openInEditor(written.tsx);
+        console.log(`  ${chalk.green("✓")} opened in VS Code`);
+      }
+      return;
+    }
+    // Fall through to single-file mode
+  }
+
+  // Single-file mode (--single, --refine, non-tailwind styles, or multi-file fallback)
   let generated: { code: string; css?: string };
   try {
     generated = await generateComponent({
@@ -198,7 +266,6 @@ async function main(): Promise<void> {
   }
 
   spinner.start(chalk.dim("writing component..."));
-  let written: { tsx: string; css?: string };
   try {
     written = writeComponent({
       code: generated.code,

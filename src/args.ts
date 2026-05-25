@@ -17,6 +17,7 @@ export interface CliArgs {
   animate: boolean;
   style: StylePreset;
   refinePath?: string;
+  singleFile: boolean;
 }
 
 export function die(message: string): never {
@@ -38,6 +39,7 @@ ${chalk.dim("Options:")}
   --animate, -a          Add Framer Motion animations (4th AI pass)
   --style,   -s <preset> Styling approach: tailwind | css-modules | styled-components  (default: tailwind)
   --refine,  -r <file>   Update an existing component to match the new screenshot (sends file contents to Gemini API)
+  --single,  -1          Output a single .tsx file instead of the default 3-file feature slice
   --name,    -n <Name>   Override the component name  (default: derived from filename)
   --output,  -o <path>   Override the output file/dir  (default: next to the image)
   --model,   -m <id>     Override the AI model         (default: ${DEFAULT_MODEL})
@@ -69,12 +71,15 @@ export function parseArgs(argv: string[]): CliArgs | null {
   let animate = false;
   let style: StylePreset = DEFAULT_STYLE;
   let refinePath: string | undefined;
+  let singleFile = false;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
 
     if (arg === "--no-open") {
       noOpen = true;
+    } else if (arg === "--single" || arg === "-1") {
+      singleFile = true;
     } else if (arg === "--animate" || arg === "-a") {
       animate = true;
     } else if (arg === "--style" || arg === "-s") {
@@ -119,5 +124,10 @@ export function parseArgs(argv: string[]): CliArgs | null {
   }
 
   if (!imagePath && !watchDir) return null;
-  return { imagePath, secondImagePath, watchDir, componentName, outputPath, model, noOpen, animate, style, refinePath };
+  // --refine targets an existing file: multi-file generation would need to update all three files,
+  // which isn't supported yet. Force single-file mode when refining.
+  if (refinePath) singleFile = true;
+  // Non-tailwind style presets produce a single output file by design.
+  if (style !== "tailwind") singleFile = true;
+  return { imagePath, secondImagePath, watchDir, componentName, outputPath, model, noOpen, animate, style, refinePath, singleFile };
 }

@@ -2,7 +2,7 @@ import { watch, existsSync } from "fs";
 import { resolve, extname } from "path";
 import chalk from "chalk";
 import { SUPPORTED_EXTENSIONS, loadImage, deriveComponentName } from "./image.js";
-import { analyzeScreenshot, analyzeInteractions, generateComponent, animateComponent } from "./generate.js";
+import { analyzeScreenshot, analyzeInteractions, generateComponent, generateComponentMultiFile, animateComponent } from "./generate.js";
 import { writeComponent, openInEditor } from "./output.js";
 import type { StylePreset } from "./args.js";
 
@@ -13,10 +13,11 @@ export interface WatchOptions {
   noOpen: boolean;
   animate: boolean;
   style: StylePreset;
+  singleFile?: boolean;
 }
 
 export async function processFile(absPath: string, options: WatchOptions): Promise<void> {
-  const { outputPath, model, noOpen, animate, style } = options;
+  const { outputPath, model, noOpen, animate, style, singleFile } = options;
   const componentName = deriveComponentName(absPath);
   const imageDir = process.cwd();
   const label = chalk.cyan(`[${componentName}]`);
@@ -39,6 +40,41 @@ export async function processFile(absPath: string, options: WatchOptions): Promi
     model,
   });
 
+  if (!singleFile) {
+    console.log(`${label} ${chalk.dim("generating component (3 files)...")}`);
+    let multiResult = null;
+    try {
+      multiResult = await generateComponentMultiFile({
+        base64: imageData.base64,
+        mediaType: imageData.mediaType,
+        componentName,
+        model,
+        analysis,
+        interactions,
+      });
+    } catch (err) {
+      console.log(`${label} ${chalk.yellow("⚠")} multi-file generation failed, falling back to single-file`);
+    }
+
+    if (multiResult) {
+      if (animate) {
+        console.log(`${label} ${chalk.dim("adding animations...")}`);
+        multiResult.tsx = await animateComponent({ code: multiResult.tsx, interactions, model });
+      }
+      const written = writeComponent({ code: multiResult.tsx, hook: multiResult.hook, types: multiResult.types, imageDir, componentName, outputOverride: outputPath });
+      console.log(`${label} ${chalk.green("✓")} wrote ${chalk.bold(written.tsx)}`);
+      if (written.hook) console.log(`${label} ${chalk.green("✓")} wrote ${chalk.bold(written.hook)}`);
+      if (written.types) console.log(`${label} ${chalk.green("✓")} wrote ${chalk.bold(written.types)}`);
+      if (!noOpen) {
+        openInEditor(written.tsx);
+        console.log(`${label} ${chalk.green("✓")} opened in VS Code`);
+      }
+      return;
+    }
+    console.log(`${label} ${chalk.yellow("⚠")} multi-file parse failed, falling back to single-file`);
+  }
+
+  // Single-file path
   console.log(`${label} ${chalk.dim("generating component...")}`);
   let generated = await generateComponent({
     base64: imageData.base64,
