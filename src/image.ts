@@ -55,8 +55,9 @@ export function deriveComponentName(filePath: string): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join("");
 
-  // Component names must start with a letter
+  // Component names must start with a letter; re-capitalise after stripping leading digits
   const sanitised = pascal.replace(/^[^a-zA-Z]+/, "");
+  if (!sanitised) return "Component";
 
-  return sanitised || "Component";
+  return sanitised.charAt(0).toUpperCase() + sanitised.slice(1);
 }
