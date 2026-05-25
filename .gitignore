@@ -8,3 +8,5 @@ dist/
 .gstack/
 test/
 CLAUDE.md
+.vexp/
+vexp.toml
