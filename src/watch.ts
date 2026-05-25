@@ -1,5 +1,5 @@
 import { watch, existsSync } from "fs";
-import { resolve, extname, dirname } from "path";
+import { resolve, extname } from "path";
 import chalk from "chalk";
 import { SUPPORTED_EXTENSIONS, loadImage, deriveComponentName } from "./image.js";
 import { analyzeScreenshot, generateComponent } from "./generate.js";
@@ -15,7 +15,7 @@ export interface WatchOptions {
 export async function processFile(absPath: string, options: WatchOptions): Promise<void> {
   const { outputPath, model, noOpen } = options;
   const componentName = deriveComponentName(absPath);
-  const imageDir = dirname(absPath);
+  const imageDir = process.cwd();
   const label = chalk.cyan(`[${componentName}]`);
 
   console.log(`${label} ${chalk.dim("reading image...")}`);
@@ -69,14 +69,15 @@ export async function startWatch(options: WatchOptions): Promise<void> {
     if (!SUPPORTED_EXTENSIONS.includes(ext)) return;
 
     const absPath = resolve(absWatchDir, filename);
-    if (!existsSync(absPath)) return; // deletion event, not addition
 
     if (inProgress.has(absPath)) return;
     inProgress.add(absPath);
 
-    // Brief delay so the file is fully written before we read it
+    // Delay before checking existence: on Windows the rename event fires before
+    // the file is visible to existsSync, so we must wait for the write to land.
     setTimeout(async () => {
       try {
+        if (!existsSync(absPath)) return; // deletion event, not addition
         await processFile(absPath, options);
       } catch (err) {
         const componentName = deriveComponentName(absPath);

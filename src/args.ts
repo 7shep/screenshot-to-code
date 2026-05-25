@@ -58,7 +58,8 @@ export function parseArgs(argv: string[]): CliArgs | null {
     if (arg === "--no-open") {
       noOpen = true;
     } else if (arg === "--watch" || arg === "-w") {
-      watchDir = args[++i];
+      const next = args[i + 1];
+      watchDir = (next && !next.startsWith("-")) ? args[++i] : ".";
     } else if (arg === "--name" || arg === "-n") {
       componentName = args[++i];
     } else if (arg === "--output" || arg === "-o") {

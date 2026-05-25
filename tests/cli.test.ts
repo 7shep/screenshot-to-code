@@ -105,6 +105,15 @@ describe("parseArgs", () => {
     expect(parseArgs(argv("--watch", "./screenshots"))).not.toBeNull();
   });
 
+  it("defaults watchDir to '.' when --watch has no argument", () => {
+    expect(parseArgs(argv("--watch"))?.watchDir).toBe(".");
+  });
+
+  it("defaults watchDir to '.' when --watch is followed by another flag", () => {
+    const result = parseArgs(argv("--watch", "--output", "./src"));
+    expect(result).toMatchObject({ watchDir: ".", outputPath: "./src" });
+  });
+
   it("calls process.exit on an unknown flag", () => {
     expect(() => parseArgs(argv("img.png", "--unknown"))).toThrow("process.exit called");
     expect(exitSpy).toHaveBeenCalledWith(1);

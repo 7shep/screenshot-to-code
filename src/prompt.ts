@@ -34,7 +34,8 @@ Rules:
 - Export the component as the default export
 - Name the component exactly as instructed in the user message
 - Include all necessary React imports
-- Use lucide-react for icons (e.g. import { Search } from 'lucide-react') instead of raw SVGs
+- Use lucide-react for generic UI icons (e.g. Search, Menu, ChevronDown) instead of raw SVGs
+- lucide-react does NOT include brand or social logos (Slack, LinkedIn, Spotify, Facebook, Reddit, GitHub, etc.). For brand icons, render a small rounded rectangle with the brand's initial letter and its well-known brand color instead of importing a non-existent icon
 - When you need conditional or merged class names, use clsx and tailwind-merge via a cn() helper defined near the top of the file:
     import { clsx, type ClassValue } from 'clsx';
     import { twMerge } from 'tailwind-merge';

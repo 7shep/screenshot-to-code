@@ -75,7 +75,7 @@ async function main(): Promise<void> {
   }
 
   const componentName = nameOverride ?? deriveComponentName(absoluteImagePath);
-  const imageDir = dirname(absoluteImagePath);
+  const imageDir = process.cwd();
 
   const spinner = ora({ color: "cyan" });
 
@@ -136,10 +136,7 @@ async function main(): Promise<void> {
   }
 }
 
-// Only run when this file is the direct entry point, not when imported as a module
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main().catch((err) => {
-    console.error(chalk.red("Unexpected error:"), err);
-    process.exit(1);
-  });
-}
+main().catch((err) => {
+  console.error(chalk.red("Unexpected error:"), err);
+  process.exit(1);
+});
