@@ -14,7 +14,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { parseArgs, die, printHelp } from "./args.js";
 import { loadImage, deriveComponentName, SUPPORTED_EXTENSIONS } from "./image.js";
-import { analyzeScreenshot, generateComponent } from "./generate.js";
+import { analyzeScreenshot, analyzeInteractions, generateComponent } from "./generate.js";
 import { writeComponent, openInEditor } from "./output.js";
 import { startWatch } from "./watch.js";
 
@@ -99,6 +99,21 @@ async function main(): Promise<void> {
   }
   spinner.succeed(chalk.dim("screenshot analysed"));
 
+  spinner.start(chalk.dim("analysing interactions..."));
+  let interactions: string;
+  try {
+    interactions = await analyzeInteractions({
+      base64: imageData.base64,
+      mediaType: imageData.mediaType,
+      analysis,
+      model,
+    });
+  } catch (err) {
+    spinner.fail(chalk.red("interaction analysis failed"));
+    handleApiError(err);
+  }
+  spinner.succeed(chalk.dim("interactions analysed"));
+
   spinner.start(chalk.dim("generating component..."));
   let code: string;
   try {
@@ -108,6 +123,7 @@ async function main(): Promise<void> {
       componentName,
       model,
       analysis,
+      interactions,
     });
   } catch (err) {
     spinner.fail(chalk.red("generation failed"));

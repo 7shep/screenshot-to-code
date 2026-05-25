@@ -54,6 +54,7 @@ function mockApiResponse(text: string) {
 const FAKE_IMAGE_PATH = "/screenshots/navbar.png";
 const FAKE_TSX = `const Navbar = () => <nav>nav</nav>;\nexport default Navbar;`;
 const FAKE_ANALYSIS = JSON.stringify({ layout: "horizontal bar" });
+const FAKE_INTERACTIONS = JSON.stringify({ interactions: [{ element: "Menu button", trigger: "click", behavior: "toggles nav", stateNeeded: "isOpen: boolean" }] });
 
 const BASE_OPTIONS = {
   watchDir: "/screenshots",
@@ -73,15 +74,16 @@ beforeEach(() => {
 
 describe("processFile", () => {
   beforeEach(() => {
-    // Two sequential API calls: analysis then code generation
+    // Three sequential API calls: visual analysis, interaction analysis, code generation
     mockGenerateContent
       .mockResolvedValueOnce({ response: { text: () => FAKE_ANALYSIS } })
+      .mockResolvedValueOnce({ response: { text: () => FAKE_INTERACTIONS } })
       .mockResolvedValueOnce({ response: { text: () => FAKE_TSX } });
   });
 
-  it("calls the API twice (analysis + generation)", async () => {
+  it("calls the API three times (visual analysis + interaction analysis + generation)", async () => {
     await processFile(FAKE_IMAGE_PATH, BASE_OPTIONS);
-    expect(mockGenerateContent).toHaveBeenCalledTimes(2);
+    expect(mockGenerateContent).toHaveBeenCalledTimes(3);
   });
 
   it("writes the component to disk", async () => {

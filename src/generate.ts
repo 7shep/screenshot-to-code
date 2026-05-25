@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { SupportedMediaType } from "./image.js";
-import { ANALYSIS_PROMPT, SYSTEM_PROMPT } from "./prompt.js";
+import { ANALYSIS_PROMPT, INTERACTION_PROMPT, SYSTEM_PROMPT } from "./prompt.js";
 
 export const DEFAULT_MODEL = "gemini-2.5-flash";
 
@@ -13,6 +13,7 @@ export interface GenerateOptions extends ImagePayload {
   componentName: string;
   model?: string;
   analysis?: string;
+  interactions?: string;
 }
 
 function makeClient(model: string) {
@@ -48,18 +49,46 @@ export async function analyzeScreenshot(
 }
 
 /**
- * Pass 2 — generate the TSX component, optionally using a prior analysis.
+ * Pass 2 — identify interactive elements and infer their React behaviour.
+ */
+export async function analyzeInteractions(
+  options: ImagePayload & { analysis: string; model?: string }
+): Promise<string> {
+  const { base64, mediaType, analysis, model = DEFAULT_MODEL } = options;
+
+  const client = makeClient(model);
+  const result = await client.generateContent({
+    systemInstruction: INTERACTION_PROMPT,
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { inlineData: { data: base64, mimeType: mediaType } },
+          { text: `Design analysis:\n${analysis}\n\nIdentify all interactive elements and their behaviours.` },
+        ],
+      },
+    ],
+  });
+
+  const text = result.response.text();
+  if (!text) throw new Error("Gemini returned no interaction analysis");
+  return stripFences(text);
+}
+
+/**
+ * Pass 3 — generate the TSX component using the visual and interaction analyses.
  */
 export async function generateComponent(
   options: GenerateOptions
 ): Promise<string> {
-  const { base64, mediaType, componentName, model = DEFAULT_MODEL, analysis } = options;
+  const { base64, mediaType, componentName, model = DEFAULT_MODEL, analysis, interactions } = options;
 
   const client = makeClient(model);
 
   const userParts = [
     { inlineData: { data: base64, mimeType: mediaType } },
     ...(analysis ? [{ text: `Design analysis:\n${analysis}` }] : []),
+    ...(interactions ? [{ text: `Interaction analysis:\n${interactions}` }] : []),
     { text: `Generate a React component named "${componentName}" that reproduces this UI screenshot.` },
   ];
 

@@ -1,14 +1,15 @@
 # s2c — Screenshot to Code
 
-A CLI tool that turns a UI screenshot into a clean React TypeScript component using an AI vision model.
+A CLI tool that turns a UI screenshot into a clean, interactive React TypeScript component using a 3-pass AI pipeline.
 
 ```
 ❯ s2c ./screenshots/navbar.png
 
   ✓ image loaded
   ✓ screenshot analysed
+  ✓ interactions analysed
   ✓ component generated
-  ✓ wrote /screenshots/Navbar.tsx
+  ✓ wrote Navbar.tsx
   ✓ opened in VS Code
 ```
 
@@ -66,7 +67,7 @@ s2c --watch <dir> [options]
 |---|---|---|---|
 | `--watch <dir>` | `-w` | Watch a directory and convert new images automatically | — |
 | `--name <Name>` | `-n` | Override the component name | Derived from filename |
-| `--output <path>` | `-o` | Output file or directory | Next to the image |
+| `--output <path>` | `-o` | Output file or directory | Current directory |
 | `--model <id>` | `-m` | Use a different AI model | `gemini-2.5-flash` |
 | `--no-open` | | Skip opening VS Code | — |
 | `--help` | `-h` | Show help | — |
@@ -109,6 +110,7 @@ s2c --watch ./screenshots --output ./src/components
 
 [Navbar] reading image...
 [Navbar] analysing screenshot (gemini-2.5-flash)...
+[Navbar] analysing interactions...
 [Navbar] generating component...
 [Navbar] ✓ wrote /src/components/Navbar.tsx
 
@@ -118,7 +120,17 @@ s2c --watch ./screenshots --output ./src/components
 
 Each new image gets its own component name derived from the filename. Multiple images can land in the folder at the same time — each is processed independently. Press `Ctrl+C` to stop.
 
-`--output` is optional; without it, each component is written next to its source image.
+`--output` is optional; without it, components are written to the directory you ran the command from.
+
+## How it works
+
+s2c runs three AI passes on every screenshot before writing a single line of code:
+
+1. **Visual analysis** — the model inspects the screenshot and produces a structured description of the layout, colour palette, typography, spacing, and every UI component visible.
+2. **Interaction analysis** — a second pass identifies every interactive element (buttons, inputs, tabs, toggles, forms) and describes exactly what each one should do: what state it needs, what triggers it, and what behaviour to implement.
+3. **Component generation** — the model receives the image alongside both analyses and generates a fully typed `.tsx` file with real `useState` hooks and handlers wired up, Tailwind classes, and `lucide-react` icons.
+
+This pipeline is what separates s2c from pasting a screenshot into a chat window — you get a component that actually works, not just one that looks right.
 
 ## Models
 

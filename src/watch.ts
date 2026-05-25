@@ -2,7 +2,7 @@ import { watch, existsSync } from "fs";
 import { resolve, extname } from "path";
 import chalk from "chalk";
 import { SUPPORTED_EXTENSIONS, loadImage, deriveComponentName } from "./image.js";
-import { analyzeScreenshot, generateComponent } from "./generate.js";
+import { analyzeScreenshot, analyzeInteractions, generateComponent } from "./generate.js";
 import { writeComponent, openInEditor } from "./output.js";
 
 export interface WatchOptions {
@@ -28,6 +28,14 @@ export async function processFile(absPath: string, options: WatchOptions): Promi
     model,
   });
 
+  console.log(`${label} ${chalk.dim("analysing interactions...")}`);
+  const interactions = await analyzeInteractions({
+    base64: imageData.base64,
+    mediaType: imageData.mediaType,
+    analysis,
+    model,
+  });
+
   console.log(`${label} ${chalk.dim("generating component...")}`);
   const code = await generateComponent({
     base64: imageData.base64,
@@ -35,6 +43,7 @@ export async function processFile(absPath: string, options: WatchOptions): Promi
     componentName,
     model,
     analysis,
+    interactions,
   });
 
   const filePath = writeComponent({ code, imageDir, componentName, outputOverride: outputPath });

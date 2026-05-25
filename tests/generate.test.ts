@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { stripFences, generateComponent, analyzeScreenshot } from "../src/generate.js";
+import { stripFences, generateComponent, analyzeScreenshot, analyzeInteractions } from "../src/generate.js";
 
 // ---------------------------------------------------------------------------
 // Mock the Gemini SDK
@@ -24,6 +24,7 @@ function mockResponse(text: string) {
 
 const FAKE_IMAGE = { base64: "aGVsbG8=", mediaType: "image/png" as const };
 const FAKE_ANALYSIS = JSON.stringify({ layout: "single column", colorPalette: {} });
+const FAKE_INTERACTIONS = JSON.stringify({ interactions: [{ element: "Subscribe button", trigger: "click", behavior: "opens modal", stateNeeded: "isModalOpen: boolean" }] });
 const FAKE_TSX = `import React from 'react';\nconst Foo = () => <div>foo</div>;\nexport default Foo;`;
 
 // ---------------------------------------------------------------------------
@@ -95,6 +96,52 @@ describe("analyzeScreenshot", () => {
 });
 
 // ---------------------------------------------------------------------------
+// analyzeInteractions
+// ---------------------------------------------------------------------------
+
+describe("analyzeInteractions", () => {
+  beforeEach(() => mockGenerateContent.mockResolvedValue(mockResponse(FAKE_INTERACTIONS)));
+
+  it("returns the model's text response", async () => {
+    const result = await analyzeInteractions({ ...FAKE_IMAGE, analysis: FAKE_ANALYSIS });
+    expect(result).toBe(FAKE_INTERACTIONS);
+  });
+
+  it("calls generateContent exactly once", async () => {
+    await analyzeInteractions({ ...FAKE_IMAGE, analysis: FAKE_ANALYSIS });
+    expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes the image as inlineData", async () => {
+    await analyzeInteractions({ ...FAKE_IMAGE, analysis: FAKE_ANALYSIS });
+    const payload = mockGenerateContent.mock.lastCall?.[0];
+    const parts = payload.contents[0].parts;
+    expect(parts[0].inlineData.data).toBe(FAKE_IMAGE.base64);
+    expect(parts[0].inlineData.mimeType).toBe("image/png");
+  });
+
+  it("includes the design analysis in the prompt", async () => {
+    await analyzeInteractions({ ...FAKE_IMAGE, analysis: FAKE_ANALYSIS });
+    const payload = mockGenerateContent.mock.lastCall?.[0];
+    const parts = payload.contents[0].parts;
+    const textPart = parts.find((p: { text?: string }) => p.text?.includes("Design analysis:"));
+    expect(textPart).toBeDefined();
+    expect(textPart.text).toContain(FAKE_ANALYSIS);
+  });
+
+  it("throws when the API returns empty text", async () => {
+    mockGenerateContent.mockResolvedValue(mockResponse(""));
+    await expect(analyzeInteractions({ ...FAKE_IMAGE, analysis: FAKE_ANALYSIS })).rejects.toThrow("no interaction analysis");
+  });
+
+  it("strips fences from the response", async () => {
+    mockGenerateContent.mockResolvedValue(mockResponse("```json\n" + FAKE_INTERACTIONS + "\n```"));
+    const result = await analyzeInteractions({ ...FAKE_IMAGE, analysis: FAKE_ANALYSIS });
+    expect(result).toBe(FAKE_INTERACTIONS);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // generateComponent
 // ---------------------------------------------------------------------------
 
@@ -134,6 +181,23 @@ describe("generateComponent", () => {
     const parts = payload.contents[0].parts;
     const analysisPart = parts.find((p: { text?: string }) => p.text?.includes("Design analysis:"));
     expect(analysisPart).toBeUndefined();
+  });
+
+  it("includes the interactions block when provided", async () => {
+    await generateComponent({ ...FAKE_IMAGE, componentName: "Foo", interactions: FAKE_INTERACTIONS });
+    const payload = mockGenerateContent.mock.lastCall?.[0];
+    const parts = payload.contents[0].parts;
+    const interactionsPart = parts.find((p: { text?: string }) => p.text?.includes("Interaction analysis:"));
+    expect(interactionsPart).toBeDefined();
+    expect(interactionsPart.text).toContain(FAKE_INTERACTIONS);
+  });
+
+  it("omits the interactions block when not provided", async () => {
+    await generateComponent({ ...FAKE_IMAGE, componentName: "Foo" });
+    const payload = mockGenerateContent.mock.lastCall?.[0];
+    const parts = payload.contents[0].parts;
+    const interactionsPart = parts.find((p: { text?: string }) => p.text?.includes("Interaction analysis:"));
+    expect(interactionsPart).toBeUndefined();
   });
 
   it("strips fences from the generated code", async () => {
