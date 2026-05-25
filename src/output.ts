@@ -1,6 +1,7 @@
 import { writeFileSync, mkdirSync } from "fs";
 import { join, dirname, resolve } from "path";
 import { exec } from "child_process";
+import { deriveHookName, deriveTypesBaseName } from "./generate.js";
 
 export interface WriteOptions {
   code: string;
@@ -8,11 +9,15 @@ export interface WriteOptions {
   componentName: string;
   outputOverride?: string;
   css?: string;
+  hook?: string;
+  types?: string;
 }
 
 export interface WriteResult {
   tsx: string;
   css?: string;
+  hook?: string;
+  types?: string;
 }
 
 /**
@@ -21,7 +26,7 @@ export interface WriteResult {
  * Returns the paths of written files.
  */
 export function writeComponent(options: WriteOptions): WriteResult {
-  const { code, imageDir, componentName, outputOverride, css } = options;
+  const { code, imageDir, componentName, outputOverride, css, hook, types } = options;
 
   let targetDir: string;
   let tsxPath: string;
@@ -42,13 +47,27 @@ export function writeComponent(options: WriteOptions): WriteResult {
   mkdirSync(targetDir, { recursive: true });
   writeFileSync(tsxPath, code, "utf-8");
 
+  const result: WriteResult = { tsx: tsxPath };
+
   if (css) {
     const cssPath = join(targetDir, `${componentName}.module.css`);
     writeFileSync(cssPath, css, "utf-8");
-    return { tsx: tsxPath, css: cssPath };
+    result.css = cssPath;
   }
 
-  return { tsx: tsxPath };
+  if (hook) {
+    const hookPath = join(targetDir, `${deriveHookName(componentName)}.ts`);
+    writeFileSync(hookPath, hook, "utf-8");
+    result.hook = hookPath;
+  }
+
+  if (types) {
+    const typesPath = join(targetDir, `${deriveTypesBaseName(componentName)}.ts`);
+    writeFileSync(typesPath, types, "utf-8");
+    result.types = typesPath;
+  }
+
+  return result;
 }
 
 /**
