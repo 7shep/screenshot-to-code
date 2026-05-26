@@ -155,11 +155,10 @@ function renderPanel(): string {
       <!-- Output -->
       <div class="section-label" style="margin-top:6px">Output</div>
       <div class="path-row">
-        <input type="text" id="output-name" placeholder="Derived from filename" value="${escHtml(optComponentName)}" style="flex:1"/>
-        <span class="path-label">Name</span>
+        <input type="text" id="output-name" placeholder="Input file output name." value="${escHtml(optComponentName)}" style="flex:1"/>
       </div>
       <div class="path-row" style="margin-top:4px">
-        <input type="text" id="output-dir" placeholder="Same as image" value="${escHtml(config.outputDir)}"/>
+        <input type="text" id="output-dir" placeholder="Input file output folder." value="${escHtml(config.outputDir)}"/>
         <button class="btn-pick" id="pick-output-btn">Pick</button>
       </div>
 
