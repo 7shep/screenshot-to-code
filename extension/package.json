@@ -1,0 +1,92 @@
+{
+  "name": "s2c-vscode",
+  "displayName": "s2c — Screenshot to Code",
+  "description": "Drag a screenshot onto the panel, get a React component. Powered by Gemini.",
+  "version": "1.4.0",
+  "publisher": "s2c",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "s2c-sidebar",
+          "title": "s2c",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "s2c-sidebar": [
+        {
+          "type": "webview",
+          "id": "s2c.panel",
+          "name": "Screenshot to Code"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "s2c.setApiKey",
+        "title": "s2c: Set API Key"
+      },
+      {
+        "command": "s2c.setGroqApiKey",
+        "title": "s2c: Set Groq API Key"
+      }
+    ],
+    "configuration": {
+      "title": "s2c",
+      "properties": {
+        "s2c.componentsDir": {
+          "type": "string",
+          "default": "",
+          "description": "Path to component library, relative to workspace root (auto-detected if empty)"
+        },
+        "s2c.outputDir": {
+          "type": "string",
+          "default": "",
+          "description": "Output directory for generated files (empty = same folder as dropped image)"
+        },
+        "s2c.defaultStyle": {
+          "type": "string",
+          "enum": ["tailwind", "css-modules", "styled-components"],
+          "default": "tailwind",
+          "description": "Default styling approach"
+        },
+        "s2c.defaultAnimate": {
+          "type": "boolean",
+          "default": false,
+          "description": "Add Framer Motion animations by default"
+        },
+        "s2c.defaultSingleFile": {
+          "type": "boolean",
+          "default": false,
+          "description": "Generate a single .tsx file instead of the default 3-file output"
+        },
+        "s2c.model": {
+          "type": "string",
+          "default": "gemini-2.5-flash",
+          "description": "AI model to use for generation (e.g. gemini-2.5-flash, llama-3.3-70b-versatile)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch"
+  },
+  "dependencies": {
+    "ts-morph": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.5.0"
+  }
+}

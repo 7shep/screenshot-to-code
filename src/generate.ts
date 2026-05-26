@@ -35,8 +35,11 @@ type TextPart = { type: "text"; text: string };
 type ImagePart = { type: "image"; base64: string; mediaType: SupportedMediaType };
 type Part = TextPart | ImagePart;
 
+const GROQ_MODEL_PREFIXES = ["llama", "mixtral", "gemma", "whisper", "deepseek", "qwen", "llava"];
+
 export function isGroqModel(model: string): boolean {
-  return !model.startsWith("gemini");
+  const lower = model.toLowerCase();
+  return GROQ_MODEL_PREFIXES.some((prefix) => lower.startsWith(prefix));
 }
 
 async function generateText(opts: {
@@ -300,16 +303,12 @@ export async function generateComponentMultiFile(
     },
   ];
 
-  let text: string;
-  try {
-    text = await generateText({
-      model,
-      systemPrompt: getMultiFilePrompt(!!existingCode, designContext),
-      parts,
-    });
-  } catch {
-    return null;
-  }
+  // Let API errors (auth, rate limit, network) propagate — only XML parse failure returns null.
+  const text = await generateText({
+    model,
+    systemPrompt: getMultiFilePrompt(!!existingCode, designContext),
+    parts,
+  });
 
   return parseMultiFileResponse(text);
 }

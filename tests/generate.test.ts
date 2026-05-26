@@ -322,10 +322,11 @@ describe("generateComponentMultiFile", () => {
     expect(result!.tsx).toBe(FAKE_COMPONENT);
   });
 
-  it("returns null when the API returns empty text", async () => {
+  it("throws when the API returns empty text (API error, not a parse failure)", async () => {
     mockGenerateContent.mockResolvedValue(mockResponse(""));
-    const result = await generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "Foo" });
-    expect(result).toBeNull();
+    await expect(
+      generateComponentMultiFile({ ...FAKE_IMAGE, componentName: "Foo" })
+    ).rejects.toThrow();
   });
 
   it("returns null when the <types> tag is missing", async () => {
