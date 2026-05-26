@@ -17,6 +17,7 @@ import { loadImage, deriveComponentName, SUPPORTED_EXTENSIONS } from "./image.js
 import { analyzeScreenshot, analyzeInteractions, analyzeStateTransition, generateComponent, generateComponentMultiFile, animateComponent } from "./generate.js";
 import type { ImagePayload } from "./generate.js";
 import { writeComponent, openInEditor } from "./output.js";
+import { buildDesignSystemContext, autoDetectComponentsDir, detectUsedComponents } from "./design-system.js";
 import { startWatch } from "./watch.js";
 
 function handleApiError(err: unknown): never {
@@ -41,7 +42,7 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  const { imagePath, secondImagePath, watchDir, componentName: nameOverride, outputPath, model, noOpen, animate, style, refinePath, singleFile } = parsed;
+  const { imagePath, secondImagePath, watchDir, componentName: nameOverride, outputPath, model, noOpen, animate, style, refinePath, singleFile, componentsDir, noDesignSystem } = parsed;
 
   // --- Validate API key ---
   if (!process.env.GEMINI_API_KEY) {
@@ -76,7 +77,8 @@ async function main(): Promise<void> {
   }
 
   const componentName = nameOverride ?? deriveComponentName(absoluteImagePath);
-  const imageDir = process.cwd();
+  const imageDir = dirname(absoluteImagePath);
+  const projectRoot = process.cwd();
 
   const spinner = ora({ color: "cyan" });
 
@@ -104,6 +106,47 @@ async function main(): Promise<void> {
     spinner.succeed(chalk.dim("images loaded (2)"));
   } else {
     spinner.succeed(chalk.dim("image loaded"));
+  }
+
+  // --- Design system context (v1.2) ---
+  let designContext: string | undefined;
+  let dsComponentNames: string[] = [];
+  let dsColorCount = 0;
+
+  if (!noDesignSystem) {
+    // Validate explicit --components dir exists
+    if (componentsDir && !existsSync(resolve(componentsDir))) {
+      spinner.stop();
+      console.error(chalk.red(`  ✗  design system failed  --components: directory not found: ${componentsDir}`));
+      process.exit(1);
+    }
+
+    spinner.start(chalk.dim("loading design system..."));
+    try {
+      const dsResult = await buildDesignSystemContext(projectRoot, componentsDir);
+      designContext = dsResult.context ?? undefined;
+      dsColorCount = dsResult.colorCount;
+      dsComponentNames = dsResult.componentNames;
+
+      spinner.stop();
+      if (!designContext) {
+        const detectedDir = componentsDir ?? autoDetectComponentsDir(projectRoot);
+        if (!detectedDir) {
+          console.log(`  ${chalk.yellow("⚠")} ${chalk.dim("design system skipped")}  ${chalk.dim("(no components dir found — use --components <dir> to enable)")}`);
+        } else {
+          console.log(`  ${chalk.yellow("⚠")} ${chalk.dim("design system skipped")}  ${chalk.dim("(no components or tokens found)")}`);
+        }
+      } else {
+        const parts: string[] = [];
+        if (dsResult.componentCount > 0) parts.push(`${dsResult.componentCount} component${dsResult.componentCount !== 1 ? "s" : ""}`);
+        if (dsColorCount > 0) parts.push(`${dsColorCount} color token${dsColorCount !== 1 ? "s" : ""}`);
+        const suffix = parts.length ? `  ${chalk.dim(`(${parts.join(", ")})`)}`  : "";
+        console.log(`  ${chalk.green("✓")} ${chalk.dim("design system loaded")}${suffix}`);
+      }
+    } catch (err) {
+      spinner.warn(chalk.yellow("design system load failed — continuing without it"));
+      designContext = undefined;
+    }
   }
 
   // --- Validate --refine + --style compatibility ---
@@ -183,6 +226,7 @@ async function main(): Promise<void> {
         existingCode,
         secondImage: secondImageData,
         stateTransition,
+        designContext,
       });
     } catch (err) {
       spinner.fail(chalk.red("generation failed"));
@@ -206,6 +250,14 @@ async function main(): Promise<void> {
         }
       }
       spinner.succeed(chalk.dim(existingCode ? "component refined (3 files)" : "component generated (3 files)"));
+      if (designContext && dsComponentNames.length > 0) {
+        const used = detectUsedComponents(multiResult.tsx, dsComponentNames);
+        if (used.length > 0) {
+          console.log(`  ${chalk.green("✓")} ${chalk.dim(`component used ${used.length} design system component${used.length !== 1 ? "s" : ""}: ${used.join(", ")}`)}`);
+        } else {
+          console.log(`  ${chalk.dim("⚑  design system loaded but no components matched this screenshot")}`);
+        }
+      }
       spinner.start(chalk.dim("writing files..."));
       try {
         written = writeComponent({
@@ -247,12 +299,21 @@ async function main(): Promise<void> {
       existingCode,
       secondImage: secondImageData,
       stateTransition,
+      designContext,
     });
   } catch (err) {
     spinner.fail(chalk.red("generation failed"));
     handleApiError(err);
   }
   spinner.succeed(chalk.dim(existingCode ? "component refined" : "component generated"));
+  if (designContext && dsComponentNames.length > 0) {
+    const used = detectUsedComponents(generated.code, dsComponentNames);
+    if (used.length > 0) {
+      console.log(`  ${chalk.green("✓")} ${chalk.dim(`component used ${used.length} design system component${used.length !== 1 ? "s" : ""}: ${used.join(", ")}`)}`);
+    } else {
+      console.log(`  ${chalk.dim("⚑  design system loaded but no components matched this screenshot")}`);
+    }
+  }
 
   if (animate) {
     spinner.start(chalk.dim("adding animations..."));

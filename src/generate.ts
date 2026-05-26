@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { SupportedMediaType } from "./image.js";
-import { ANALYSIS_PROMPT, ANIMATION_PROMPT, INTERACTION_PROMPT, STATE_TRANSITION_PROMPT, getGenerationPrompt, MULTI_FILE_SYSTEM_PROMPT, MULTI_FILE_REFINE_PROMPT } from "./prompt.js";
+import { ANALYSIS_PROMPT, ANIMATION_PROMPT, INTERACTION_PROMPT, STATE_TRANSITION_PROMPT, getGenerationPrompt, getMultiFilePrompt } from "./prompt.js";
 
 export const DEFAULT_MODEL = "gemini-2.5-flash";
 
@@ -18,6 +18,7 @@ export interface GenerateOptions extends ImagePayload {
   existingCode?: string;
   secondImage?: ImagePayload;
   stateTransition?: string;
+  designContext?: string;
 }
 
 export interface GenerateResult {
@@ -124,7 +125,7 @@ export async function generateComponent(
   const {
     base64, mediaType, componentName, model = DEFAULT_MODEL,
     analysis, interactions, style = "tailwind",
-    existingCode, secondImage, stateTransition,
+    existingCode, secondImage, stateTransition, designContext,
   } = options;
 
   const client = makeClient(model);
@@ -146,7 +147,7 @@ export async function generateComponent(
   ];
 
   const result = await client.generateContent({
-    systemInstruction: getGenerationPrompt(!!existingCode, style),
+    systemInstruction: getGenerationPrompt(!!existingCode, style, designContext),
     contents: [{ role: "user", parts: userParts }],
   });
 
@@ -229,7 +230,7 @@ export async function generateComponentMultiFile(
 ): Promise<MultiFileResult | null> {
   const {
     base64, mediaType, componentName, model = DEFAULT_MODEL,
-    analysis, interactions, existingCode, secondImage, stateTransition,
+    analysis, interactions, existingCode, secondImage, stateTransition, designContext,
   } = options;
 
   const hookName = deriveHookName(componentName);
@@ -254,7 +255,7 @@ export async function generateComponentMultiFile(
   ];
 
   const result = await client.generateContent({
-    systemInstruction: existingCode ? MULTI_FILE_REFINE_PROMPT : MULTI_FILE_SYSTEM_PROMPT,
+    systemInstruction: getMultiFilePrompt(!!existingCode, designContext),
     contents: [{ role: "user", parts: userParts }],
   });
 

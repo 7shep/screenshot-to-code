@@ -62,6 +62,8 @@ const BASE_OPTIONS = {
   model: "gemini-2.5-flash",
   noOpen: true,
   animate: false,
+  singleFile: true,
+  style: "tailwind" as const,
 };
 
 beforeEach(() => {
@@ -88,7 +90,8 @@ describe("processFile", () => {
   });
 
   it("calls the API four times when animate is true", async () => {
-    mockGenerateContent.mockResolvedValueOnce({ response: { text: () => FAKE_ANALYSIS } })
+    mockGenerateContent
+      .mockResolvedValueOnce({ response: { text: () => FAKE_ANALYSIS } })
       .mockResolvedValueOnce({ response: { text: () => FAKE_INTERACTIONS } })
       .mockResolvedValueOnce({ response: { text: () => FAKE_TSX } })
       .mockResolvedValueOnce({ response: { text: () => `import { motion } from 'framer-motion';\n${FAKE_TSX}` } });

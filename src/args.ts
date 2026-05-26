@@ -18,6 +18,8 @@ export interface CliArgs {
   style: StylePreset;
   refinePath?: string;
   singleFile: boolean;
+  componentsDir?: string;
+  noDesignSystem: boolean;
 }
 
 export function die(message: string): never {
@@ -46,6 +48,12 @@ ${chalk.dim("Options:")}
   --no-open              Skip opening the file in VS Code
   --help,    -h          Show this help
 
+${chalk.dim("Design System (v1.2):")}
+  --components <dir>     Component library directory for context injection
+                         (default: auto-detects src/components, components/, packages/ui/src, and more)
+  --no-design-system     Skip component and Tailwind context injection entirely
+                         (faster generation, useful if injection degrades output)
+
 ${chalk.dim("Supported image formats:")}
   ${SUPPORTED_EXTENSIONS.join(", ")}
 
@@ -72,6 +80,8 @@ export function parseArgs(argv: string[]): CliArgs | null {
   let style: StylePreset = DEFAULT_STYLE;
   let refinePath: string | undefined;
   let singleFile = false;
+  let componentsDir: string | undefined;
+  let noDesignSystem = false;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -104,6 +114,13 @@ export function parseArgs(argv: string[]): CliArgs | null {
       outputPath = args[++i];
     } else if (arg === "--model" || arg === "-m") {
       model = args[++i];
+    } else if (arg === "--components") {
+      const val = args[i + 1];
+      if (!val || val.startsWith("-")) die("--components requires a directory path");
+      componentsDir = val;
+      i++;
+    } else if (arg === "--no-design-system") {
+      noDesignSystem = true;
     } else if (arg === "--help" || arg === "-h") {
       printHelp();
       process.exit(0);
@@ -129,5 +146,5 @@ export function parseArgs(argv: string[]): CliArgs | null {
   if (refinePath) singleFile = true;
   // Non-tailwind style presets produce a single output file by design.
   if (style !== "tailwind") singleFile = true;
-  return { imagePath, secondImagePath, watchDir, componentName, outputPath, model, noOpen, animate, style, refinePath, singleFile };
+  return { imagePath, secondImagePath, watchDir, componentName, outputPath, model, noOpen, animate, style, refinePath, singleFile, componentsDir, noDesignSystem };
 }

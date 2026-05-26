@@ -167,9 +167,16 @@ Rules:
     const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 - Output ONLY the code — no markdown fences, no explanations, no comments about what you're doing`;
 
-export function getGenerationPrompt(hasExistingCode: boolean, style: string): string {
-  if (hasExistingCode) return REFINE_SYSTEM_PROMPT;
-  return getSystemPrompt(style);
+export function getGenerationPrompt(hasExistingCode: boolean, style: string, designContext?: string): string {
+  const base = hasExistingCode ? REFINE_SYSTEM_PROMPT : getSystemPrompt(style);
+  if (!designContext) return base;
+  return `${base}\n\n${designContext}`;
+}
+
+export function getMultiFilePrompt(hasExistingCode: boolean, designContext?: string): string {
+  const base = hasExistingCode ? MULTI_FILE_REFINE_PROMPT : MULTI_FILE_SYSTEM_PROMPT;
+  if (!designContext) return base;
+  return `${base}\n\n${designContext}`;
 }
 
 export const MULTI_FILE_SYSTEM_PROMPT = `You are a React TypeScript developer generating a complete feature slice from a UI screenshot.

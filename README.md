@@ -120,9 +120,12 @@ s2c --watch <dir> [options]
 | `--animate` | `-a` | Add Framer Motion animations (4th AI pass) | — |
 | `--style <preset>` | `-s` | Styling approach: `tailwind`, `css-modules`, `styled-components` | `tailwind` |
 | `--refine <file>` | `-r` | Update an existing component to match the new screenshot (sends file contents to Gemini API) | — |
+| `--single` | `-1` | Output a single `.tsx` file instead of the default 3-file feature slice | — |
 | `--name <Name>` | `-n` | Override the component name | Derived from filename |
 | `--output <path>` | `-o` | Output file or directory | Current directory |
 | `--model <id>` | `-m` | Use a different AI model | `gemini-2.5-flash` |
+| `--components <dir>` | | Component library directory for design system context injection | Auto-detected |
+| `--no-design-system` | | Skip component and Tailwind context injection entirely | — |
 | `--no-open` | | Skip opening VS Code | — |
 | `--help` | `-h` | Show help | — |
 
@@ -168,7 +171,39 @@ s2c modal-closed.png modal-open.png
 
 # Combine: refine + animate
 s2c new-design.png --refine src/components/Hero.tsx --animate
+
+# Design system — point at your component library explicitly
+s2c dashboard.png --components ./packages/ui/src
+
+# Skip design system injection (faster, blank-slate output)
+s2c dashboard.png --no-design-system
 ```
+
+## Design System Context (v1.2)
+
+s2c can scan your component library and Tailwind tokens before generating, so the output reuses your existing components and design language instead of inventing new ones.
+
+```
+❯ s2c ./screenshots/dashboard.png
+
+  ✓ image loaded
+  ✓ design system loaded  (12 components, 24 color tokens)
+  ✓ screenshot analysed
+  ✓ interactions analysed
+  ✓ component generated (3 files)
+  ✓ component used 4 design system components: Card, Button, Badge, Avatar
+  ✓ wrote Dashboard.tsx
+  ...
+```
+
+**Component scanning** — uses the TypeScript compiler to extract exported component names, prop types, and JSDoc descriptions from your `.tsx` files.
+
+**Tailwind tokens** — reads color tokens from `tailwind.config.js` (v3) or CSS `@theme` blocks in `globals.css` (v4) and injects them into the prompt so the model uses your exact color scale.
+
+**Auto-detection** — s2c looks for components in these directories automatically (in order):
+`src/components`, `components/`, `app/components/`, `packages/ui/src`, `packages/design-system/src`, `libs/ui/src`
+
+Override with `--components <dir>` or opt out entirely with `--no-design-system`.
 
 ## Watch Mode
 
