@@ -1,6 +1,5 @@
 import { existsSync } from "fs";
 import { join, resolve } from "path";
-import { scanComponents } from "./scanner.js";
 import { extractTailwindTokens } from "./tailwind.js";
 import type { ComponentInfo } from "./scanner.js";
 import type { TokenMap } from "./tailwind.js";
@@ -41,7 +40,9 @@ export async function buildDesignSystemContext(
     : autoDetectComponentsDir(projectRoot);
 
   const [components, tokens] = await Promise.all([
-    dir ? scanComponents(dir) : Promise.resolve([] as ComponentInfo[]),
+    dir
+      ? import("./scanner.js").then(({ scanComponents }) => scanComponents(dir))
+      : Promise.resolve([] as ComponentInfo[]),
     extractTailwindTokens(projectRoot),
   ]);
 
@@ -130,7 +131,8 @@ export async function buildDesignSystemContext(
 /** Extract component names used in generated TSX (post-generation signal for status line) */
 export function detectUsedComponents(code: string, componentNames: string[]): string[] {
   return componentNames.filter((name) => {
-    // Match <Button, <Button>, <Button , etc.
-    return new RegExp(`<${name}[\\s/>]`).test(code);
+    // Escape special regex chars so names like Form.Item or $Icon don't throw
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`<${escaped}[\\s/>]`).test(code);
   });
 }

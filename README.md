@@ -290,12 +290,65 @@ export GROQ_API_KEY=gsk_...
 s2c ./screenshots/navbar.png --model meta-llama/llama-4-scout-17b-16e-instruct
 ```
 
-s2c detects the provider from the model name — any non-`gemini-` model is routed to Groq automatically.
+s2c detects the provider from the model name — any model starting with `llama`, `mixtral`, `gemma`, `deepseek`, `qwen`, or `whisper` is routed to Groq automatically.
+
+## VS Code Extension (v1.4)
+
+The extension bundles the full generation pipeline — no CLI install required.
+
+### Install
+
+1. Open the `extension/` folder in VS Code
+2. Press `F5` to launch the Extension Development Host
+3. The **s2c** icon appears in the Activity Bar (left sidebar)
+
+To build a `.vsix` for distribution:
+```bash
+cd extension
+npm install
+npm run build
+npx vsce package
+```
+
+### Setup
+
+Click the **s2c** icon in the Activity Bar to open the panel, then enter your API key when prompted. The key is stored in VS Code's SecretStorage — it never touches `settings.json`.
+
+You can also set keys via the command palette:
+- `s2c: Set API Key` — Gemini
+- `s2c: Set Groq API Key` — Groq
+
+### Usage
+
+1. Drag a `.png`, `.jpg`, `.jpeg`, or `.webp` screenshot onto the drop zone (or click to pick)
+2. Configure options: animations, style, single-file mode, design system path
+3. Click **Generate Component**
+4. Watch the per-pass progress — the component opens in your editor when done
+
+### Workspace settings
+
+```jsonc
+// .vscode/settings.json
+{
+  "s2c.componentsDir": "src/components",   // component library path (auto-detected if empty)
+  "s2c.outputDir": "",                      // output folder (empty = same folder as image)
+  "s2c.defaultStyle": "tailwind",          // tailwind | css-modules | styled-components
+  "s2c.defaultAnimate": false,
+  "s2c.defaultSingleFile": false,
+  "s2c.model": "gemini-2.5-flash"
+}
+```
 
 ## Development
 
 ```bash
+# CLI
 npm run dev      # watch mode — recompiles on save
 npm run build    # one-shot build
 npm test         # run tests
+
+# Extension
+cd extension
+npm run build    # one-shot esbuild
+npm run watch    # watch mode
 ```

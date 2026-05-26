@@ -71,16 +71,26 @@ async function tryReadV4Tokens(root: string): Promise<TokenMap | null> {
 async function tryReadV3Tokens(root: string): Promise<TokenMap | null> {
   // Only .js and .cjs — .ts requires a transpiler subprocess which is out of scope for v1.2
   const candidates = ["tailwind.config.js", "tailwind.config.cjs"];
-  const require = createRequire(import.meta.url);
 
   for (const candidate of candidates) {
     const fullPath = join(root, candidate);
     if (!existsSync(fullPath)) continue;
 
     try {
+      // createRequire needs a valid file URL or path.
+      // In native ESM, import.meta.url is available.
+      // In esbuild CJS bundles, import.meta.url throws — fall back to a require rooted
+      // at the config file itself so relative requires inside it resolve correctly.
+      let requireFn: NodeRequire;
+      try {
+        requireFn = createRequire(import.meta.url);
+      } catch {
+        requireFn = createRequire(fullPath);
+      }
+
       // Clear require cache so re-runs pick up changes
-      delete require.cache[require.resolve(fullPath)];
-      const mod = require(fullPath);
+      delete requireFn.cache[requireFn.resolve(fullPath)];
+      const mod = requireFn(fullPath);
       const config = mod?.default ?? mod;
       const theme = config?.theme?.extend ?? config?.theme ?? {};
 
@@ -109,7 +119,10 @@ function flattenTokens(
     const fullKey = prefix ? `${prefix}-${key}` : key;
     if (typeof value === "string") {
       result[fullKey] = value;
-    } else if (value && typeof value === "object" && !Array.isArray(value)) {
+    } else if (Array.isArray(value)) {
+      // e.g. fontFamily: ['Inter', 'sans-serif'] → 'Inter, sans-serif'
+      result[fullKey] = (value as unknown[]).filter((v) => typeof v === "string").join(", ");
+    } else if (value && typeof value === "object") {
       Object.assign(result, flattenTokens(value as Record<string, unknown>, fullKey));
     }
   }
