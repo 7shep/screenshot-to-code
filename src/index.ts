@@ -14,7 +14,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { parseArgs, die, printHelp } from "./args.js";
 import { loadImage, deriveComponentName, SUPPORTED_EXTENSIONS } from "./image.js";
-import { analyzeScreenshot, analyzeInteractions, analyzeStateTransition, generateComponent, generateComponentMultiFile, animateComponent } from "./generate.js";
+import { analyzeScreenshot, analyzeInteractions, analyzeStateTransition, generateComponent, generateComponentMultiFile, animateComponent, isGroqModel } from "./generate.js";
 import type { ImagePayload } from "./generate.js";
 import { writeComponent, openInEditor } from "./output.js";
 import { buildDesignSystemContext, autoDetectComponentsDir, detectUsedComponents } from "./design-system.js";
@@ -24,10 +24,10 @@ function handleApiError(err: unknown): never {
   if (err instanceof Error) {
     const msg = err.message;
     if (msg.includes("API_KEY_INVALID") || msg.includes("401") || msg.includes("authentication")) {
-      die("Authentication failed — check your GEMINI_API_KEY.");
+      die("Authentication failed — check your API key (GEMINI_API_KEY or GROQ_API_KEY).");
     }
-    if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("rate limit")) {
-      die("Rate limited by Gemini API — please wait and try again.");
+    if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("rate limit") || msg.includes("rate_limit")) {
+      die("Rate limited — please wait and try again, or switch models with --model.");
     }
     die(msg);
   }
@@ -45,7 +45,17 @@ async function main(): Promise<void> {
   const { imagePath, secondImagePath, watchDir, componentName: nameOverride, outputPath, model, noOpen, animate, style, refinePath, singleFile, componentsDir, noDesignSystem } = parsed;
 
   // --- Validate API key ---
-  if (!process.env.GEMINI_API_KEY) {
+  if (isGroqModel(model)) {
+    if (!process.env.GROQ_API_KEY) {
+      die(
+        "GROQ_API_KEY is not set.\n" +
+        chalk.dim(
+          "    Set it with: export GROQ_API_KEY=gsk_...\n" +
+          "    Get a key at: https://console.groq.com/keys"
+        )
+      );
+    }
+  } else if (!process.env.GEMINI_API_KEY) {
     die(
       "GEMINI_API_KEY is not set.\n" +
       chalk.dim(

@@ -45,6 +45,9 @@ ${chalk.dim("Options:")}
   --name,    -n <Name>   Override the component name  (default: derived from filename)
   --output,  -o <path>   Override the output file/dir  (default: next to the image)
   --model,   -m <id>     Override the AI model         (default: ${DEFAULT_MODEL})
+                         Gemini: gemini-2.5-flash, gemini-2.5-pro, gemini-2.0-flash
+                         Groq:   llama-3.2-90b-vision-preview, llama-3.2-11b-vision-preview
+                         (Groq requires GROQ_API_KEY; Gemini requires GEMINI_API_KEY)
   --no-open              Skip opening the file in VS Code
   --help,    -h          Show this help
 

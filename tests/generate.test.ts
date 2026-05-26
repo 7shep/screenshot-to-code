@@ -85,7 +85,7 @@ describe("analyzeScreenshot", () => {
 
   it("throws when the API returns empty text", async () => {
     mockGenerateContent.mockResolvedValue(mockResponse(""));
-    await expect(analyzeScreenshot(FAKE_IMAGE)).rejects.toThrow("no analysis");
+    await expect(analyzeScreenshot(FAKE_IMAGE)).rejects.toThrow("no content");
   });
 
   it("strips fences from the analysis response", async () => {
@@ -131,7 +131,7 @@ describe("analyzeInteractions", () => {
 
   it("throws when the API returns empty text", async () => {
     mockGenerateContent.mockResolvedValue(mockResponse(""));
-    await expect(analyzeInteractions({ ...FAKE_IMAGE, analysis: FAKE_ANALYSIS })).rejects.toThrow("no interaction analysis");
+    await expect(analyzeInteractions({ ...FAKE_IMAGE, analysis: FAKE_ANALYSIS })).rejects.toThrow("no content");
   });
 
   it("strips fences from the response", async () => {
@@ -210,7 +210,7 @@ describe("generateComponent", () => {
     mockGenerateContent.mockResolvedValue(mockResponse(""));
     await expect(
       generateComponent({ ...FAKE_IMAGE, componentName: "Foo" })
-    ).rejects.toThrow("no text content");
+    ).rejects.toThrow("no content");
   });
 });
 
@@ -267,7 +267,7 @@ describe("animateComponent", () => {
 
   it("throws when the API returns empty text", async () => {
     mockGenerateContent.mockResolvedValue(mockResponse(""));
-    await expect(animateComponent({ code: FAKE_TSX })).rejects.toThrow("no animated component");
+    await expect(animateComponent({ code: FAKE_TSX })).rejects.toThrow("no content");
   });
 });
 

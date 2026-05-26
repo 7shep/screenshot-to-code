@@ -262,11 +262,32 @@ Control the styling approach with `--style`:
 
 The default model is `gemini-2.5-flash`. Swap to any vision-capable model with `--model`.
 
+### Gemini (requires `GEMINI_API_KEY`)
+
 | Model | Notes |
 |---|---|
 | `gemini-2.5-flash` | Default. Fast and capable. |
 | `gemini-2.5-pro` | Slower, higher quality. |
 | `gemini-2.0-flash` | Previous generation flash. |
+
+### Groq (requires `GROQ_API_KEY`)
+
+Groq offers a generous free tier with much higher rate limits than Gemini's free plan. Get a key at [console.groq.com/keys](https://console.groq.com/keys).
+
+| Model | Notes |
+|---|---|
+| `llama-3.2-90b-vision-preview` | Best quality. Recommended for Groq. |
+| `llama-3.2-11b-vision-preview` | Faster, lower context usage. |
+
+```bash
+# Set your Groq key
+export GROQ_API_KEY=gsk_...
+
+# Use a Groq model
+s2c ./screenshots/navbar.png --model llama-3.2-90b-vision-preview
+```
+
+s2c detects the provider from the model name — any non-`gemini-` model is routed to Groq automatically.
 
 ## Development
 
