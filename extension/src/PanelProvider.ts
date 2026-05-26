@@ -1,8 +1,9 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import { getApiKey, hasAnyApiKey, getSettings } from "./config";
+import { getApiKey, hasAnyApiKey, getKeyStatus, getSettings } from "./config";
 import { run } from "./runner";
+import { outputChannel } from "./extension";
 
 // Messages sent from the webview to the extension host
 type WebviewMessage =
@@ -80,19 +81,16 @@ export class PanelProvider implements vscode.WebviewViewProvider {
         await this.handleSaveApiKey(message.provider, message.key);
         break;
 
-      case "saveSettings":
-        // Persist settings changes from the panel to workspace config
-        if (message.settings.componentsDir !== undefined) {
-          await vscode.workspace
-            .getConfiguration("s2c")
-            .update("componentsDir", message.settings.componentsDir, vscode.ConfigurationTarget.Workspace);
-        }
-        if (message.settings.outputDir !== undefined) {
-          await vscode.workspace
-            .getConfiguration("s2c")
-            .update("outputDir", message.settings.outputDir, vscode.ConfigurationTarget.Workspace);
+      case "saveSettings": {
+        const cfg = vscode.workspace.getConfiguration("s2c");
+        const allowed = ["componentsDir", "outputDir", "model"] as const;
+        for (const key of allowed) {
+          if (message.settings[key] !== undefined) {
+            await cfg.update(key, message.settings[key], vscode.ConfigurationTarget.Workspace);
+          }
         }
         break;
+      }
     }
   }
 
@@ -151,6 +149,8 @@ export class PanelProvider implements vscode.WebviewViewProvider {
       await vscode.window.showTextDocument(doc, { preview: false });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      outputChannel.appendLine(`[s2c error] ${msg}`);
+      if (err instanceof Error && err.stack) outputChannel.appendLine(err.stack);
       this.postError(formatApiError(msg));
     }
   }
@@ -192,7 +192,8 @@ export class PanelProvider implements vscode.WebviewViewProvider {
   private async sendConfig(): Promise<void> {
     const settings = getSettings();
     const hasKey = await hasAnyApiKey(this.context.secrets);
-    this.post({ type: "config", settings, hasApiKey: hasKey });
+    const keyStatus = await getKeyStatus(this.context.secrets);
+    this.post({ type: "config", settings, hasApiKey: hasKey, ...keyStatus });
   }
 
   private post(message: Record<string, unknown>): void {

@@ -1,7 +1,10 @@
 import * as vscode from "vscode";
 import { PanelProvider } from "./PanelProvider";
 
+export const outputChannel = vscode.window.createOutputChannel("s2c");
+
 export function activate(context: vscode.ExtensionContext): void {
+  context.subscriptions.push(outputChannel);
   const provider = new PanelProvider(context);
 
   context.subscriptions.push(

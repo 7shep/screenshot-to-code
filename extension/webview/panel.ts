@@ -17,7 +17,7 @@ interface S2CConfig {
 }
 
 type HostMessage =
-  | { type: "config"; settings: S2CConfig; hasApiKey: boolean }
+  | { type: "config"; settings: S2CConfig; hasApiKey: boolean; hasGeminiKey: boolean; hasGroqKey: boolean }
   | { type: "progress"; pass: number; total: number; label: string }
   | { type: "done"; outputPath: string; hook?: string; types?: string; usedComponents: string[] }
   | { type: "error"; message: string }
@@ -38,6 +38,15 @@ let config: S2CConfig = {
   model: "gemini-2.5-flash",
 };
 let hasApiKey = false;
+let hasGeminiKey = false;
+let hasGroqKey = false;
+
+// User's current option selections — survive re-renders
+let optAnimate = false;
+let optSingleFile = false;
+let optNoDesignSystem = false;
+let optStyle: "tailwind" | "css-modules" | "styled-components" = "tailwind";
+let optModel = "gemini-2.5-flash";
 
 // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -86,7 +95,6 @@ function renderPanel(): string {
             : `<span class="drop-icon">📷</span>
                <span class="drop-label"><strong>Drop image here</strong><br>or click to pick</span>`
         }
-        <input type="file" id="file-input" accept=".png,.jpg,.jpeg,.webp" tabindex="-1"/>
       </div>
 
       <hr/>
@@ -95,28 +103,44 @@ function renderPanel(): string {
       <div class="section-label">Options</div>
 
       <div class="option-row">
-        <input type="checkbox" id="opt-animate" ${config.defaultAnimate ? "checked" : ""}/>
+        <input type="checkbox" id="opt-animate" ${optAnimate ? "checked" : ""}/>
         <label for="opt-animate">Add animations (Framer Motion)</label>
       </div>
 
       <div class="option-row">
-        <input type="checkbox" id="opt-single" ${config.defaultSingleFile ? "checked" : ""}/>
+        <input type="checkbox" id="opt-single" ${optSingleFile ? "checked" : ""}/>
         <label for="opt-single">Single-file mode <span style="opacity:0.6;font-size:10px">(default: 3 files)</span></label>
       </div>
 
       <div class="option-row">
-        <input type="checkbox" id="opt-no-ds"/>
+        <input type="checkbox" id="opt-no-ds" ${optNoDesignSystem ? "checked" : ""}/>
         <label for="opt-no-ds">Skip design system</label>
       </div>
 
       <div class="style-row">
         <label for="opt-style">Style:</label>
         <select id="opt-style">
-          <option value="tailwind" ${config.defaultStyle === "tailwind" ? "selected" : ""}>Tailwind</option>
-          <option value="css-modules" ${config.defaultStyle === "css-modules" ? "selected" : ""}>CSS Modules</option>
-          <option value="styled-components" ${config.defaultStyle === "styled-components" ? "selected" : ""}>Styled Components</option>
+          <option value="tailwind" ${optStyle === "tailwind" ? "selected" : ""}>Tailwind</option>
+          <option value="css-modules" ${optStyle === "css-modules" ? "selected" : ""}>CSS Modules</option>
+          <option value="styled-components" ${optStyle === "styled-components" ? "selected" : ""}>Styled Components</option>
         </select>
       </div>
+
+      <hr/>
+
+      <!-- Model -->
+      <div class="section-label">Model</div>
+      <select id="opt-model" class="model-select">
+        <optgroup label="Google Gemini">
+          <option value="gemini-2.5-flash" ${optModel === "gemini-2.5-flash" ? "selected" : ""}>gemini-2.5-flash — fast (default)</option>
+          <option value="gemini-2.5-pro" ${optModel === "gemini-2.5-pro" ? "selected" : ""}>gemini-2.5-pro — higher quality</option>
+          <option value="gemini-2.0-flash" ${optModel === "gemini-2.0-flash" ? "selected" : ""}>gemini-2.0-flash — previous gen</option>
+        </optgroup>
+        <optgroup label="Groq (Llama 4)">
+          <option value="meta-llama/llama-4-scout-17b-16e-instruct" ${optModel === "meta-llama/llama-4-scout-17b-16e-instruct" ? "selected" : ""}>llama-4-scout — fast</option>
+          <option value="meta-llama/llama-4-maverick-17b-128e-instruct" ${optModel === "meta-llama/llama-4-maverick-17b-128e-instruct" ? "selected" : ""}>llama-4-maverick — higher quality</option>
+        </optgroup>
+      </select>
 
       <hr/>
 
@@ -132,6 +156,25 @@ function renderPanel(): string {
       <div class="path-row">
         <input type="text" id="output-dir" placeholder="Same as image" value="${escHtml(config.outputDir)}"/>
         <button class="btn-pick" id="pick-output-btn">Pick</button>
+      </div>
+
+      <hr/>
+
+      <!-- API Keys -->
+      <div class="section-label">API Keys</div>
+      <div class="apikey-section">
+        <div class="apikey-provider-row">
+          <span class="provider-label">Gemini</span>
+          <span class="key-status ${hasGeminiKey ? "key-set" : "key-unset"}">${hasGeminiKey ? "●" : "○"}</span>
+          <input type="password" id="gemini-key-input" placeholder="${hasGeminiKey ? "update key…" : "AIza…"}" autocomplete="off"/>
+          <button class="btn-pick" id="gemini-key-save">Save</button>
+        </div>
+        <div class="apikey-provider-row">
+          <span class="provider-label">Groq</span>
+          <span class="key-status ${hasGroqKey ? "key-set" : "key-unset"}">${hasGroqKey ? "●" : "○"}</span>
+          <input type="password" id="groq-key-input" placeholder="${hasGroqKey ? "update key…" : "gsk_…"}" autocomplete="off"/>
+          <button class="btn-pick" id="groq-key-save">Save</button>
+        </div>
       </div>
 
       <hr/>
@@ -162,7 +205,6 @@ function bindSetupScreen(): void {
 function bindPanel(): void {
   // Drop zone
   const dropZone = document.getElementById("drop-zone")!;
-  const fileInput = document.getElementById("file-input") as HTMLInputElement;
 
   dropZone.addEventListener("dragover", (e) => {
     e.preventDefault();
@@ -175,12 +217,9 @@ function bindPanel(): void {
     const file = e.dataTransfer?.files[0];
     if (file) handleFileSelected((file as File & { path?: string }).path ?? file.name);
   });
-  dropZone.addEventListener("click", (e) => {
-    if ((e.target as HTMLElement).id !== "file-input") fileInput.click();
-  });
-  fileInput.addEventListener("change", () => {
-    const file = fileInput.files?.[0];
-    if (file) handleFileSelected((file as File & { path?: string }).path ?? file.name);
+  // Click uses VS Code's native file picker so we always get a full filesystem path
+  dropZone.addEventListener("click", () => {
+    vscode.postMessage({ type: "pickFile", purpose: "image" });
   });
 
   // Pick buttons
@@ -193,6 +232,34 @@ function bindPanel(): void {
 
   // Generate
   document.getElementById("generate-btn")?.addEventListener("click", generate);
+
+  // Track option state so it survives re-renders
+  document.getElementById("opt-animate")?.addEventListener("change", (e) => {
+    optAnimate = (e.target as HTMLInputElement).checked;
+  });
+  document.getElementById("opt-single")?.addEventListener("change", (e) => {
+    optSingleFile = (e.target as HTMLInputElement).checked;
+  });
+  document.getElementById("opt-no-ds")?.addEventListener("change", (e) => {
+    optNoDesignSystem = (e.target as HTMLInputElement).checked;
+  });
+  document.getElementById("opt-style")?.addEventListener("change", (e) => {
+    optStyle = (e.target as HTMLSelectElement).value as typeof optStyle;
+  });
+  document.getElementById("opt-model")?.addEventListener("change", (e) => {
+    optModel = (e.target as HTMLSelectElement).value;
+    vscode.postMessage({ type: "saveSettings", settings: { model: optModel } });
+  });
+
+  // API key saves from main panel
+  document.getElementById("gemini-key-save")?.addEventListener("click", () => {
+    const input = document.getElementById("gemini-key-input") as HTMLInputElement;
+    if (input.value.trim()) saveApiKey("gemini", input.value);
+  });
+  document.getElementById("groq-key-save")?.addEventListener("click", () => {
+    const input = document.getElementById("groq-key-input") as HTMLInputElement;
+    if (input.value.trim()) saveApiKey("groq", input.value);
+  });
 
   // Settings persistence on change
   document.getElementById("components-dir")?.addEventListener("change", (e) => {
@@ -219,28 +286,26 @@ function saveApiKey(provider: "gemini" | "groq", key: string): void {
 function generate(): void {
   if (!selectedImagePath || isGenerating) return;
 
-  const animate = (document.getElementById("opt-animate") as HTMLInputElement)?.checked ?? false;
-  const singleFile = (document.getElementById("opt-single") as HTMLInputElement)?.checked ?? false;
-  const noDesignSystem = (document.getElementById("opt-no-ds") as HTMLInputElement)?.checked ?? false;
-  const style = (document.getElementById("opt-style") as HTMLSelectElement)?.value as "tailwind" | "css-modules" | "styled-components";
   const componentsDir = (document.getElementById("components-dir") as HTMLInputElement)?.value || undefined;
   const outputDir = (document.getElementById("output-dir") as HTMLInputElement)?.value || undefined;
 
   isGenerating = true;
   render();
 
-  // Show initial progress log
-  renderProgressLog([{ label: "loading design system...", state: "running" }]);
+  const logArea = document.getElementById("log-area");
+  if (logArea) {
+    logArea.innerHTML = `<div class="progress-log">${buildProgressLines(0, optAnimate ? 5 : 4, "loading design system...")}</div>`;
+  }
 
   vscode.postMessage({
     type: "generate",
     imagePath: selectedImagePath,
     options: {
-      model: config.model,
-      animate,
-      singleFile,
-      style,
-      noDesignSystem,
+      model: optModel,
+      animate: optAnimate,
+      singleFile: optSingleFile,
+      style: optStyle,
+      noDesignSystem: optNoDesignSystem,
       componentsDir,
       outputDir,
     },
@@ -256,6 +321,15 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     case "config":
       config = msg.settings;
       hasApiKey = msg.hasApiKey;
+      hasGeminiKey = msg.hasGeminiKey;
+      hasGroqKey = msg.hasGroqKey;
+      // Only apply workspace defaults on first load (before user has touched anything)
+      if (!selectedImagePath && !isGenerating) {
+        optAnimate = config.defaultAnimate;
+        optSingleFile = config.defaultSingleFile;
+        optStyle = config.defaultStyle;
+        optModel = config.model;
+      }
       render();
       break;
 

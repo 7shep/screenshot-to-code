@@ -26,6 +26,14 @@ export async function hasAnyApiKey(secrets: vscode.SecretStorage): Promise<boole
   return !!(gemini || groq);
 }
 
+export async function getKeyStatus(
+  secrets: vscode.SecretStorage
+): Promise<{ hasGeminiKey: boolean; hasGroqKey: boolean }> {
+  const gemini = await secrets.get("s2c.geminiApiKey");
+  const groq = await secrets.get("s2c.groqApiKey");
+  return { hasGeminiKey: !!gemini, hasGroqKey: !!groq };
+}
+
 export function getSettings(): S2CConfig {
   const cfg = vscode.workspace.getConfiguration("s2c");
   return {

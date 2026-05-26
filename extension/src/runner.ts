@@ -56,14 +56,10 @@ export async function run(options: RunOptions): Promise<RunResult> {
   if (geminiApiKey) process.env.GEMINI_API_KEY = geminiApiKey;
   if (groqApiKey) process.env.GROQ_API_KEY = groqApiKey;
 
-  // Resolve workspace root from image location (multi-root aware).
+  // Resolve workspace root for design system scanning — falls back to the
+  // image's directory if no workspace folder is open (e.g. Extension Dev Host).
   const wsFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(imagePath));
-  if (!wsFolder) {
-    throw new Error(
-      "No workspace folder found for this image — open a workspace folder first."
-    );
-  }
-  const projectRoot = wsFolder.uri.fsPath;
+  const projectRoot = wsFolder?.uri.fsPath ?? path.dirname(imagePath);
   const imageDir = outputDir ? path.resolve(outputDir) : path.dirname(imagePath);
   const componentName = nameOverride ?? deriveComponentName(imagePath);
 
