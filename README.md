@@ -1,6 +1,6 @@
 # s2c — Screenshot to Code
 
-A CLI tool that turns a UI screenshot into a clean, interactive React TypeScript component using a multi-pass AI pipeline.
+Turn a UI screenshot into a clean, interactive React TypeScript component using a multi-pass AI pipeline. Available as a **VS Code extension** (drag-and-drop panel) or a **CLI tool**.
 
 ```
 ❯ s2c ./screenshots/navbar.png
@@ -294,21 +294,30 @@ s2c detects the provider from the model name — any model starting with `llama`
 
 ## VS Code Extension (v1.4)
 
-The extension bundles the full generation pipeline — no CLI install required.
+The extension bundles the full generation pipeline — no CLI install required. Drop a screenshot onto the panel and get a component without leaving VS Code.
 
 ### Install
 
-1. Open the `extension/` folder in VS Code
-2. Press `F5` to launch the Extension Development Host
-3. The **s2c** icon appears in the Activity Bar (left sidebar)
+**Step 1 — build the `.vsix`**
 
-To build a `.vsix` for distribution:
 ```bash
 cd extension
 npm install
 npm run build
-npx vsce package
+npm install -g @vscode/vsce   # one-time
+vsce package
+# → produces s2c-vscode-1.4.0.vsix
 ```
+
+**Step 2 — install in VS Code**
+
+```bash
+code --install-extension extension/s2c-vscode-1.4.0.vsix
+```
+
+Or via the command palette: `Extensions: Install from VSIX...` → select the file.
+
+Reload VS Code. The **s2c** icon appears in the Activity Bar.
 
 ### Setup
 
@@ -321,7 +330,7 @@ You can also set keys via the command palette:
 ### Usage
 
 1. Drag a `.png`, `.jpg`, `.jpeg`, or `.webp` screenshot onto the drop zone (or click to pick)
-2. Configure options: animations, style, single-file mode, design system path
+2. Configure options: animations, style, single-file mode, design system path, component name
 3. Click **Generate Component**
 4. Watch the per-pass progress — the component opens in your editor when done
 
@@ -351,4 +360,7 @@ npm test         # run tests
 cd extension
 npm run build    # one-shot esbuild
 npm run watch    # watch mode
+
+# Extension — live dev (opens Extension Development Host)
+# Open the extension/ folder in VS Code and press F5
 ```
