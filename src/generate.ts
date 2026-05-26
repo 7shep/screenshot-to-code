@@ -83,17 +83,26 @@ async function generateTextGroq({ model, systemPrompt, parts }: {
     baseURL: "https://api.groq.com/openai/v1",
   });
 
-  const content = parts.map((p) =>
-    p.type === "text"
-      ? { type: "text" as const, text: p.text }
-      : { type: "image_url" as const, image_url: { url: `data:${p.mediaType};base64,${p.base64}` } }
-  );
+  const hasImages = parts.some((p) => p.type === "image");
+
+  // Groq requires content to be a plain string for text-only (non-vision) models.
+  // Only use the array format when images are present (vision-capable models only).
+  const userContent: string | OpenAI.ChatCompletionContentPart[] = hasImages
+    ? parts.map((p) =>
+        p.type === "text"
+          ? { type: "text" as const, text: p.text }
+          : { type: "image_url" as const, image_url: { url: `data:${p.mediaType};base64,${p.base64}` } }
+      )
+    : parts
+        .filter((p): p is TextPart => p.type === "text")
+        .map((p) => p.text)
+        .join("\n\n");
 
   const result = await client.chat.completions.create({
     model,
     messages: [
       { role: "system", content: systemPrompt },
-      { role: "user", content },
+      { role: "user", content: userContent },
     ],
     max_tokens: 8192,
   });

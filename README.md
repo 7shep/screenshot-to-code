@@ -276,15 +276,18 @@ Groq offers a generous free tier with much higher rate limits than Gemini's free
 
 | Model | Notes |
 |---|---|
-| `llama-3.2-90b-vision-preview` | Best quality. Recommended for Groq. |
-| `llama-3.2-11b-vision-preview` | Faster, lower context usage. |
+| `meta-llama/llama-4-scout-17b-16e-instruct` | Recommended. Fast, vision-capable. |
+| `meta-llama/llama-4-maverick-17b-128e-instruct` | Higher quality, slower. |
+
+> **Note:** Llama 4 models must be enabled in your Groq project before use.
+> Visit [console.groq.com/settings/project/limits](https://console.groq.com/settings/project/limits) to enable them.
 
 ```bash
 # Set your Groq key
 export GROQ_API_KEY=gsk_...
 
 # Use a Groq model
-s2c ./screenshots/navbar.png --model llama-3.2-90b-vision-preview
+s2c ./screenshots/navbar.png --model meta-llama/llama-4-scout-17b-16e-instruct
 ```
 
 s2c detects the provider from the model name — any non-`gemini-` model is routed to Groq automatically.
