@@ -47,6 +47,7 @@ let optSingleFile = false;
 let optNoDesignSystem = false;
 let optStyle: "tailwind" | "css-modules" | "styled-components" = "tailwind";
 let optModel = "gemini-2.5-flash";
+let optComponentName = "";
 
 // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -152,8 +153,12 @@ function renderPanel(): string {
       </div>
 
       <!-- Output -->
-      <div class="section-label" style="margin-top:6px">Output Folder</div>
+      <div class="section-label" style="margin-top:6px">Output</div>
       <div class="path-row">
+        <input type="text" id="output-name" placeholder="Derived from filename" value="${escHtml(optComponentName)}" style="flex:1"/>
+        <span class="path-label">Name</span>
+      </div>
+      <div class="path-row" style="margin-top:4px">
         <input type="text" id="output-dir" placeholder="Same as image" value="${escHtml(config.outputDir)}"/>
         <button class="btn-pick" id="pick-output-btn">Pick</button>
       </div>
@@ -261,6 +266,10 @@ function bindPanel(): void {
     if (input.value.trim()) saveApiKey("groq", input.value);
   });
 
+  document.getElementById("output-name")?.addEventListener("input", (e) => {
+    optComponentName = (e.target as HTMLInputElement).value.trim();
+  });
+
   // Settings persistence on change
   document.getElementById("components-dir")?.addEventListener("change", (e) => {
     config.componentsDir = (e.target as HTMLInputElement).value;
@@ -302,6 +311,7 @@ function generate(): void {
     imagePath: selectedImagePath,
     options: {
       model: optModel,
+      componentName: optComponentName || undefined,
       animate: optAnimate,
       singleFile: optSingleFile,
       style: optStyle,
