@@ -2,6 +2,115 @@
 
 All notable changes to s2c are documented here.
 
+## [1.4.0] — 2026-05-26
+
+### VS Code Extension
+
+A full sidebar panel that bundles the entire generation pipeline inside VS Code — no CLI install required.
+
+**Install**
+
+1. Open the `extension/` folder in VS Code
+2. Press `F5` to launch the Extension Development Host
+3. The **s2c** icon appears in the Activity Bar
+
+To build a `.vsix` for distribution:
+```bash
+cd extension && npm install && npm run build && npx vsce package
+```
+
+**Features**
+
+- **Drag-and-drop** or click-to-pick screenshots directly in the panel
+- **Per-pass progress log** with live spinner — see each AI pass complete in real time
+- **All generation options** available in the UI: animations, single-file mode, style preset, skip design system
+- **Model selector** grouped by provider — switch between Gemini and Groq/Llama 4 models without touching settings
+- **API Keys section** with ●/○ live status indicators — set or update Gemini and Groq keys directly in the panel (stored in VS Code SecretStorage, never in `settings.json`)
+- **Component name override** — set a custom output name or leave blank to derive from the filename
+- **Output folder picker** — browse to any directory using VS Code's native folder dialog
+- **Design system path** — point at your component library or leave on auto-detect
+
+**Workspace settings** (`.vscode/settings.json`):
+
+```jsonc
+{
+  "s2c.componentsDir": "src/components",
+  "s2c.outputDir": "",
+  "s2c.defaultStyle": "tailwind",
+  "s2c.defaultAnimate": false,
+  "s2c.defaultSingleFile": false,
+  "s2c.model": "gemini-2.5-flash"
+}
+```
+
+### Bug fixes
+
+- `isGroqModel` now uses an explicit prefix list (`llama`, `mixtral`, `gemma`, `whisper`, `deepseek`, `qwen`, `llava`) — previously `!startsWith("gemini")` incorrectly routed non-Gemini models like `gpt-4o` to Groq
+- `generateComponentMultiFile` no longer swallows API errors — the blanket `try/catch` around `generateText` was silently returning `null` on auth failures and rate limits; API errors now propagate correctly
+- `tryReadV3Tokens` in `tailwind.ts` falls back to `createRequire(fullPath)` when `import.meta.url` throws inside esbuild CJS bundles
+- `flattenTokens` now handles Tailwind v3 array values (e.g. `fontFamily: ['Inter', 'sans-serif']`) instead of dropping them
+- `detectUsedComponents` now escapes special regex characters in component names (e.g. `Form.Item`, `$Icon`) that previously caused `SyntaxError` at runtime
+
+---
+
+## [1.3.0] — 2026-05-26
+
+### Groq support
+
+Use Llama 4 models via Groq's OpenAI-compatible API. Groq offers a generous free tier with significantly higher rate limits than Gemini's free plan.
+
+```bash
+export GROQ_API_KEY=gsk_...
+s2c ./screenshots/navbar.png --model meta-llama/llama-4-scout-17b-16e-instruct
+```
+
+**Available Groq models**
+
+| Model | Notes |
+|---|---|
+| `meta-llama/llama-4-scout-17b-16e-instruct` | Recommended — fast, vision-capable |
+| `meta-llama/llama-4-maverick-17b-128e-instruct` | Higher quality, slower |
+
+Provider is detected automatically from the model name — any model starting with `llama`, `mixtral`, `gemma`, `deepseek`, `qwen`, or `whisper` is routed to Groq. No flag needed.
+
+> **Note:** Llama 4 models must be enabled in your Groq project at [console.groq.com/settings/project/limits](https://console.groq.com/settings/project/limits).
+
+---
+
+## [1.2.0] — 2026-05-26
+
+### Design system context injection
+
+s2c now scans your component library and Tailwind tokens before generating, so output reuses your existing components and design language instead of inventing new ones.
+
+```
+❯ s2c ./screenshots/dashboard.png
+
+  ✓ image loaded
+  ✓ design system loaded  (12 components, 24 color tokens)
+  ✓ screenshot analysed
+  ✓ interactions analysed
+  ✓ component generated (3 files)
+  ✓ component used 4 design system components: Card, Button, Badge, Avatar
+  ✓ wrote Dashboard.tsx
+```
+
+**Component scanning** — uses the TypeScript compiler (ts-morph) to extract exported component names, prop types, and JSDoc descriptions from your `.tsx` files. The model is instructed to import and use matching components instead of reimplementing them.
+
+**Tailwind tokens** — reads color tokens from `tailwind.config.js` (v3) or CSS `@theme` blocks in `globals.css` (v4) and injects them into the prompt so the model uses your exact color scale.
+
+**Auto-detection** — looks for components in these directories automatically (in order):
+`src/components`, `components/`, `app/components/`, `packages/ui/src`, `packages/design-system/src`, `libs/ui/src`
+
+**New flags**
+
+| Flag | Description |
+|---|---|
+| `--components <dir>` | Explicit path to your component library |
+| `--no-design-system` | Skip scanning entirely for a faster, blank-slate run |
+
+---
+
 ## [1.1.0] — 2026-05-25
 
 ### Multi-file output (`--multi-file`)
