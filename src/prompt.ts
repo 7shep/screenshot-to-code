@@ -72,6 +72,7 @@ Rules:
 - Use lucide-react for generic UI icons instead of raw SVGs
 - lucide-react does NOT include brand or social logos. For brand icons, render a small rounded rectangle with the brand's initial letter and its well-known brand color
 - Wire up real useState hooks and handlers from the interaction analysis
+- BACKGROUND: apply the background from the screenshot to the outermost wrapper element in the CSS module. Use the exact hex value from the design analysis (e.g. background: #1a1a2e). Never default to white or no background unless the screenshot explicitly shows a plain white background
 - Match the color palette, spacing, typography, and layout from the design analysis exactly
 - Output ONLY the code in the two sections — no markdown fences, no explanations
 
@@ -97,6 +98,7 @@ Rules:
 - Use lucide-react for generic UI icons instead of raw SVGs
 - lucide-react does NOT include brand or social logos. For brand icons, render a small rounded rectangle with the brand's initial letter and its well-known brand color
 - Wire up real useState hooks and handlers from the interaction analysis
+- BACKGROUND: apply the background from the screenshot to the outermost styled component. Use the exact hex value from the design analysis (e.g. background: #1a1a2e). Never default to white or no background unless the screenshot explicitly shows a plain white background
 - Match the color palette, spacing, typography, and layout from the design analysis exactly
 - Output ONLY the code — no markdown fences, no explanations`;
 
@@ -107,8 +109,8 @@ You will be given a structured design analysis and an interaction analysis of th
 Rules:
 - Output a single TypeScript .tsx file
 - Use Tailwind CSS classes for all styling — no inline styles, no external CSS
-- Use exact Tailwind color names (e.g. bg-blue-500, text-gray-900) — never arbitrary hex values like bg-[#3b82f6] or text-[#111827]
-- Reproduce the background of the screenshot exactly — apply the background colour, gradient, or dark/light theme to the outermost wrapper element. Never default to white or transparent unless the screenshot explicitly shows a white background
+- Use exact Tailwind color names (e.g. bg-blue-500, text-gray-900) — never arbitrary hex values like bg-[#3b82f6] or text-[#111827], EXCEPT for the background (see rule below)
+- BACKGROUND — this is the most commonly failed rule: you MUST apply the background from the screenshot to the outermost wrapper element. Read the "background" and "colorPalette.background" fields from the design analysis and apply them as a Tailwind class (e.g. bg-gray-900, bg-slate-800, bg-gradient-to-br). If the background color does not map cleanly to a named Tailwind color, use an arbitrary value (e.g. bg-[#1a1a2e]) rather than defaulting to white. The only time you should render no background class or bg-white is when the screenshot explicitly shows a plain white background
 - Write a typed functional component with proper TypeScript props (use an empty interface if no props are needed)
 - Export the component as the default export
 - Name the component exactly as instructed in the user message
@@ -158,7 +160,8 @@ Rules:
 - Keep all existing imports unless they become unused
 - Output a single TypeScript .tsx file — the complete updated component
 - Use Tailwind CSS classes for all styling — no inline styles, no external CSS
-- Use exact Tailwind color names — never arbitrary hex values like bg-[#3b82f6]
+- Use exact Tailwind color names — never arbitrary hex values like bg-[#3b82f6], EXCEPT for the background (see rule below)
+- BACKGROUND: apply the background from the new screenshot to the outermost wrapper element. Use a named Tailwind color if possible (e.g. bg-gray-900); use an arbitrary value (e.g. bg-[#1a1a2e]) if the color doesn't map cleanly. Never default to white or no background unless the screenshot explicitly shows a plain white background
 - Use lucide-react for generic UI icons instead of raw SVGs
 - lucide-react does NOT include brand or social logos. For brand icons, render a small rounded rectangle with the brand's initial and its brand color
 - When you need conditional or merged class names, use clsx and tailwind-merge via a cn() helper:
@@ -212,8 +215,8 @@ COMPONENT FILE rules:
 - Import hook using: import { use{ComponentName} } from './use{ComponentName}'
 - Import types using: import type { ... } from './{componentName}.types'
 - Pure JSX — calls the hook, renders UI, no internal useState
-- Use Tailwind CSS only — exact Tailwind color names (e.g. bg-blue-500), never arbitrary hex
-- Reproduce the screenshot background exactly on the outermost element
+- Use Tailwind CSS only — exact Tailwind color names (e.g. bg-blue-500), never arbitrary hex, EXCEPT for the background (see rule below)
+- BACKGROUND: apply the background from the screenshot to the outermost wrapper element. Use a named Tailwind color if it maps cleanly (e.g. bg-gray-900, bg-slate-800); use an arbitrary value (e.g. bg-[#1a1a2e]) if it doesn't. Never default to white or no background class unless the screenshot explicitly shows a plain white background
 - Use lucide-react for icons (import { IconName } from 'lucide-react')
 - Use cn() helper for conditional classes:
     import { clsx, type ClassValue } from 'clsx'
@@ -241,5 +244,6 @@ Rules:
 - Preserve state logic, event handlers, and type shapes where they still apply
 - Update styles, layout, colors, and content to match the new screenshot exactly
 - Add or remove state/handlers only if the new screenshot requires different interactions
-- All file rules from the standard multi-file prompt apply (Tailwind, lucide-react, cn(), correct imports)
+- BACKGROUND: apply the background from the new screenshot to the outermost wrapper element in the component file. Use a named Tailwind color if possible; use an arbitrary value (e.g. bg-[#1a1a2e]) if needed. Never default to white or no background unless the screenshot explicitly shows a plain white background
+- All other file rules from the standard multi-file prompt apply (Tailwind, lucide-react, cn(), correct imports)
 - No markdown fences, no explanation — only valid TypeScript inside each tag`;
