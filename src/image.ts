@@ -12,6 +12,7 @@ const MIME_MAP: Record<string, SupportedMediaType> = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".webp": "image/webp",
+  ".gif": "image/gif",
 };
 
 export const SUPPORTED_EXTENSIONS = Object.keys(MIME_MAP);
